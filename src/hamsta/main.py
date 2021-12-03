@@ -24,7 +24,7 @@ import argparse
 import logging
 import sys
 
-from hamsta import __version__, estimation, io, utils
+from hamsta import __version__, estimation_jackknife, io, utils
 
 __author__ = "tszfungc"
 __copyright__ = "tszfungc"
@@ -165,7 +165,8 @@ def main(args):
 
     # After having M, S, rotated Z
     # return to be stored
-    estimation.estimate(M=U.shape[0], S=S, rotated_z=rotated_z)
+    # estimation.estimate(M=U.shape[0], S=S, rotated_z=rotated_z)
+    estimation_jackknife.estimate(M=U.shape[0], S=S, rotated_z=rotated_z)
 
     _logger.info("Program ends")
 
