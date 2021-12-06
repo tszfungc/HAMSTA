@@ -32,28 +32,11 @@ __license__ = "MIT"
 
 _logger = logging.getLogger(__name__)
 
-
 # ---- Python API ----
 # The functions defined in this section can be imported by users in their
 # Python scripts/interactive interpreter, e.g. via
 # `from hamsta.skeleton import fib`,
 # when using this Python module as a library.
-
-
-# def fib(n):
-#    """Fibonacci example function
-#
-#    Args:
-#      n (int): integer
-#
-#    Returns:
-#      int: n-th Fibonacci number
-#    """
-#    assert n > 0
-#    a, b = 1, 1
-#    for _i in range(n - 1):
-#        a, b = b, a + b
-#    return a
 
 
 # ---- CLI ----
@@ -81,7 +64,7 @@ def parse_args(args):
         version="HAMSTA {ver}".format(ver=__version__),
     )
 
-    parser.add_argument("--sumstat", help="Input filename of admixture mapping results")
+    parser.add_argument("sumstat", help="Input filename of admixture mapping results")
     parser.add_argument("--rsumstat", help="Input filename of rotated Z")
 
     parser.add_argument("--svdprefix", help="Prefix of the SVD results")
@@ -92,18 +75,19 @@ def parse_args(args):
         "-v",
         "--verbose",
         dest="loglevel",
-        help="set loglevel to INFO",
-        action="store_const",
-        const=logging.INFO,
-    )
-    parser.add_argument(
-        "-vv",
-        "--very-verbose",
-        dest="loglevel",
-        help="set loglevel to DEBUG",
+        help="set loglevel from INFO to DEBUG",
+        default=logging.INFO,
         action="store_const",
         const=logging.DEBUG,
     )
+    # parser.add_argument(
+    #     "-vv",
+    #     "--very-verbose",
+    #     dest="loglevel",
+    #     help="set loglevel to DEBUG",
+    #     action="store_const",
+    #     const=logging.DEBUG,
+    # )
     return parser.parse_args(args)
 
 
@@ -120,27 +104,25 @@ def setup_logging(loglevel):
 
 
 def main(args):
-    """Wrapper allowing :func:`fib` to be called with string arguments in a CLI fashion
-
-    Instead of returning the value from :func:`fib`, it prints the result to the
-    ``stdout`` in a nicely formatted message.
-
-    Args:
-      args (List[str]): command line parameters as list of strings
-          (for example  ``["--verbose", "42"]``).
-    """
+    """Wrapper  in a CLI fashion"""
     args = parse_args(args)
     setup_logging(args.loglevel)
-    # _logger.debug("Starting crazy calculations...")
+    _logger.debug("Starting crazy calculations...")
     _logger.info("Program Starts")
-    # print("The {}-th Fibonacci number is {}".format(args.n, fib(args.n)))
-    # Preview the argparse results
-    print("\nCLI called \n " + " ".join(sys.argv))
 
+    # Preview the argparse results
     args_dict = vars(args)
-    print("\nArguments parsed")
-    print("---------------")
-    print("\n".join([f"\t{i}: {args_dict[i]}" for i in args_dict]))
+    parse_prtout = "\n".join([f"\t{i}: {args_dict[i]}" for i in args_dict])
+    _logger.info(
+        f"""
+CLI called
+{' '.join(sys.argv)}
+
+Arguments parsed
+---------------
+{parse_prtout}
+"""
+    )
 
     # main procedures
     # sumstat_df = io.read_sumstat(args.sumstat)
@@ -148,14 +130,17 @@ def main(args):
     # Z = sumstat_df['T_STAT'].values
     # sumstat_df = io.read_sumstat(args.sumstat)
     Z = io.read_sumstat(args.sumstat)
-    print("Read sumstat; Number of markers: ", end=" ")
-    print(Z.shape[0])
+    _logger.info(
+        f"""
+Read sumstat; Number of markers: {Z.shape[0]}
+    """
+    )
 
     # if Z is supplied, rotated Z
 
     # read SVD prefix
     if args.svdprefix is None:
-        print("No SVD results")
+        _logger.info("No SVD results")
         # if none, read fb.tsv and perform SVD
         U, S, SDpj = io.read_rfmix_N_SVD(args.rfmixprefix)
     else:
@@ -166,7 +151,7 @@ def main(args):
     # After having M, S, rotated Z
     # return to be stored
     # estimation.estimate(M=U.shape[0], S=S, rotated_z=rotated_z)
-    estimation_bootstrap.estimate(M=U.shape[0], S=S, rotated_z=rotated_z)
+    estimation_bootstrap.run(M=U.shape[0], S=S, rotated_z=rotated_z)
 
     _logger.info("Program ends")
 
