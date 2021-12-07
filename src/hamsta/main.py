@@ -80,14 +80,6 @@ def parse_args(args):
         action="store_const",
         const=logging.DEBUG,
     )
-    # parser.add_argument(
-    #     "-vv",
-    #     "--very-verbose",
-    #     dest="loglevel",
-    #     help="set loglevel to DEBUG",
-    #     action="store_const",
-    #     const=logging.DEBUG,
-    # )
     return parser.parse_args(args)
 
 

@@ -86,7 +86,7 @@ def bootstrap(M, S, design_matrix, rotated_z=None):
     x0 = jnp.repeat(jnp.log(0.5), design_matrix.shape[1] + 1)
 
     h2a_bs = []
-    for i in tqdm(range(5)):
+    for i in tqdm(range(500)):
         resampled = np.random.choice(np.arange(S.shape[0]), S.shape[0], replace=True)
         bs_res = optimize.minimize(
             neg_log_lik,
