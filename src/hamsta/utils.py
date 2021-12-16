@@ -46,7 +46,6 @@ def rotate_Z(U, SDpj, Z, Rsq_Q=0.0):
 
 
 # Minimize wrapper
-# https://gist.github.com/slinderman/24552af1bdbb6cb033bfea9b2dc4ecfd
 def minimize(
     fun: Callable,
     x0: jnp.ndarray,
@@ -56,7 +55,6 @@ def minimize(
     options: Optional[Mapping[str, Any]] = None,
 ):
 
-    # Use tree flatten and unflatten to convert params x0 from PyTrees to flat arrays
     if options is None:
         options = {}
 

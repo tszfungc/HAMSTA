@@ -54,7 +54,6 @@ def estimate(M, S, design_matrix, rotated_z=None):
         rotated_z: 1D numpy array of the rotated z scores. This is computated by np.sqrt(1-R2) * (U.T * Drt @ Z), where R2 is the phenotypic variance explained by global ancestry, U is the U matrix in SVD of A.T = U * S @ V.T, Drt is a 1D array of S.D. of local ancestry after global ancestry is projected out, and Z is the unrotated Z.
     """  # noqa: E501
 
-    # input file
     x0 = jnp.repeat(-0.7, design_matrix.shape[1] + 1)
 
     obj_fun = partial(
