@@ -24,7 +24,7 @@ import argparse
 import logging
 import sys
 
-from hamsta import __version__, estimation_bootstrap, io, utils
+from hamsta import __version__, estimation_jackknife, io, utils
 
 __author__ = "tszfungc"
 __copyright__ = "tszfungc"
@@ -143,7 +143,7 @@ Read sumstat; Number of markers: {Z.shape[0]}
     # After having M, S, rotated Z
     # return to be stored
     # estimation.estimate(M=U.shape[0], S=S, rotated_z=rotated_z)
-    estimation_bootstrap.run(M=U.shape[0], S=S, rotated_z=rotated_z)
+    estimation_jackknife.run(M=U.shape[0], S=S, rotated_z=rotated_z)
 
     _logger.info("Program ends")
 

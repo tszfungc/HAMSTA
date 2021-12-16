@@ -1,11 +1,11 @@
-import sys
+from typing import Any, Callable, Mapping, Optional
 
 import jax
 import jax.numpy as jnp
 import numpy as np
+import scipy
+from jax import grad, jit
 from scipy import stats
-
-from hamsta import io
 
 jax.config.update("jax_enable_x64", True)
 
@@ -45,9 +45,36 @@ def rotate_Z(U, SDpj, Z, Rsq_Q=0.0):
     return jnp.array(rotated_Z)
 
 
+# Minimize wrapper
+# https://gist.github.com/slinderman/24552af1bdbb6cb033bfea9b2dc4ecfd
+def minimize(
+    fun: Callable,
+    x0: jnp.ndarray,
+    *,
+    method: str,
+    tol: Optional[float] = None,
+    options: Optional[Mapping[str, Any]] = None,
+):
+
+    # Use tree flatten and unflatten to convert params x0 from PyTrees to flat arrays
+    if options is None:
+        options = {}
+
+    fun_with_args = fun
+
+    f_jac = jit(jax.value_and_grad(fun_with_args))
+
+    # Hessian vector product
+    def hvp(primals, tangents):
+        return jax.jvp(grad(fun_with_args), (primals,), (tangents,))[1]
+
+    results = scipy.optimize.minimize(
+        f_jac, x0, method=method, hessp=hvp, jac=True, tol=tol, options=options
+    )
+
+    return results
+
+
 if __name__ == "__main__":
     # CLI for debug only
-    U = np.load(sys.argv[1] + ".SVD.U.npy")
-    SDpj = np.load(sys.argv[1] + ".SVD.SDpj.npy")
-    Z = io.read_sumstat(sys.argv[2])["T_STAT"].values
-    print(rotate_Z(U, SDpj, Z))
+    pass
