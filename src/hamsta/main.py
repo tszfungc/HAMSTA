@@ -12,8 +12,7 @@ which will install the command ``fibonacci`` inside your current environment.
 Besides console scripts, the header (i.e. until ``_logger``...) of this file can
 also be used as template for Python modules.
 
-Note:
-    This skeleton file can be safely removed if not needed!
+Note: This skeleton file can be safely removed if not needed!
 
 References:
     - https://setuptools.readthedocs.io/en/latest/userguide/entry_point.html
@@ -55,23 +54,28 @@ def parse_args(args):
     Returns:
       :obj:`argparse.Namespace`: command line parameters namespace
     """
-    parser = argparse.ArgumentParser(
+    topparser = argparse.ArgumentParser(
         description="Heritability Estimation from Admixture Mapping Summary Statistics"
     )
-    parser.add_argument(
+    parser_ = topparser.add_subparsers(help='Choose subcommand')
+
+    # infer
+    parsera = parser_.add_parser('infer', help='Inference')
+    parsera.add_argument(
         "--version",
         action="version",
         version="HAMSTA {ver}".format(ver=__version__),
     )
 
-    parser.add_argument("sumstat", help="Input filename of admixture mapping results")
-    parser.add_argument("--rsumstat", help="Input filename of rotated Z")
+    parsera.add_argument("sumstat", help="Input filename of admixture mapping results")
+    parsera.add_argument("--rsumstat", help="Input filename of rotated Z")
 
-    parser.add_argument("--svdprefix", help="Prefix of the SVD results")
+    parsera.add_argument("--svdprefix", help="Prefix of the SVD results")
+    parsera.add_argument("--svdprefix-chr", help="Prefix of the per chr SVD results")
 
-    parser.add_argument("--rfmixprefix", help="Prefix of the rfmix results")
+    parsera.add_argument("--rfmixprefix", help="Prefix of the rfmix results")
 
-    parser.add_argument(
+    parsera.add_argument(
         "-v",
         "--verbose",
         dest="loglevel",
@@ -80,7 +84,27 @@ def parse_args(args):
         action="store_const",
         const=logging.DEBUG,
     )
-    return parser.parse_args(args)
+    parsera.set_defaults(func=infer_main)
+
+
+    # preprocess
+    parserb = parser_.add_parser('pprocess', help='pre-process')
+    parserb.add_argument(
+        "-v",
+        "--verbose",
+        dest="loglevel",
+        help="set loglevel from INFO to DEBUG",
+        default=logging.INFO,
+        action="store_const",
+        const=logging.DEBUG,
+    )
+    parserb.add_argument("--pgen", help='Path to pgen')
+    parserb.add_argument("--global-ancestry", help='Path to rfmix.Q')
+    parserb.add_argument("--out", help='output prefix')
+    parserb.set_defaults(func=pprocess_main)
+
+
+    return topparser.parse_args(args)
 
 
 def setup_logging(loglevel):
@@ -116,6 +140,21 @@ Arguments parsed
 """
     )
 
+    # main func for subcommands
+    args.func(args)
+
+def pprocess_main(args):
+    # read rfmix output
+    #U, S, SDpj = io.read_rfmix_N_SVD(args.rfmixprefix
+    Q = io.read_global_ancestry(args.global_ancestry)
+    A = io.read_pgen(args.pgen)
+
+    utils.SVD(A, Q, outprefix=args.out)
+
+
+
+def infer_main(args):
+
     # main procedures
     # sumstat_df = io.read_sumstat(args.sumstat)
     # add Z or rotated Z
@@ -131,19 +170,30 @@ Read sumstat; Number of markers: {Z.shape[0]}
     # if Z is supplied, rotated Z
 
     # read SVD prefix
-    if args.svdprefix is None:
-        _logger.info("No SVD results")
-        # if none, read fb.tsv and perform SVD
-        U, S, SDpj = io.read_rfmix_N_SVD(args.rfmixprefix)
-    else:
+    if args.svdprefix is not None:
         U, S, SDpj = io.read_SVD(args.svdprefix)
 
+    if args.svdprefix_chr is not None:
+        U, S, SDpj = io.read_SVD_chr(args.svdprefix_chr)
+
+    _logger.info(
+        f"""
+Read SVD; Number of markers: {U.shape}
+    """
+    )
+
+    assert S.shape[0] == Z.shape[0], "Mismatch dimension"
+    #print(sum(S>1e-3))
+    #U = U[S>1e-3]
+    #SDpj = SDpj[S>1e-3]
+    #Z = Z[S>1e-3]
+    #S = S[S>1e-3]
     rotated_z = utils.rotate_Z(U, SDpj, Z)
 
     # After having M, S, rotated Z
-    # return to be stored
-    # estimation.estimate(M=U.shape[0], S=S, rotated_z=rotated_z)
-    estimation_jackknife.run(M=U.shape[0], S=S, rotated_z=rotated_z)
+    _logger.info("Summary stat rotated")
+    estimation_jackknife.run(M=U.shape[0], S=S, rotated_z=rotated_z,
+                             binsize=rotated_z.shape[0])
 
     _logger.info("Program ends")
 

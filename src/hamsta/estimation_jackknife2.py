@@ -1,13 +1,12 @@
 """Estimation of the paramters h2a and interecepts
 """
 
-from functools import partial
-
 import jax
 import jax.numpy as jnp
+from functools import partial
 import numpy as np
 import pandas as pd
-from jax.scipy import optimize, stats
+from jax.scipy import optimize
 from tqdm import tqdm
 
 
@@ -24,7 +23,7 @@ def neg_log_lik(M, S, intercept_design, rotated_z, x):
 
     ex = jnp.exp(x)
 
-    # import pdb; pdb.set_trace()
+    #import pdb; pdb.set_trace()
     h2a = ex[0]
     intercepts = ex[1:]
 
@@ -55,19 +54,11 @@ def run(M, S, rotated_z=None, binsize=500):
         bin_idx[bin_idx == max(bin_idx)] -= 1
     bin_idx_design_mat = pd.get_dummies(bin_idx).values
 
-    est_res_x = estimate(
-        M=M, S=S, design_matrix=bin_idx_design_mat, rotated_z=rotated_z
-    )
-
-    H1_scale = est_res_x[0] / M * S ** 4 + bin_idx_design_mat @ est_res_x[1:] * S ** 2
-    stats.norm.logpdf(rotated_z, loc=0, scale=kest_res_x)
-
-    h2a_se = bootstrap(M=M, S=S, design_matrix=bin_idx_design_mat, rotated_z=rotated_z)
+    est_res_x, h2a_se = jackknife(M=M, S=S, design_matrix=bin_idx_design_mat, rotated_z=rotated_z)
 
     print(f"h2a estimate: {est_res_x[0]} (se: {h2a_se})")
     print(f"intercepts estimate: {est_res_x[1:]}")
     print(f"mean intercepts estimate: {jnp.mean(est_res_x[1:])}", flush=True)
-
 
 @jax.jit
 def estimate(M, S, design_matrix, rotated_z=None):
@@ -82,42 +73,42 @@ def estimate(M, S, design_matrix, rotated_z=None):
     # input file
     x0 = jnp.repeat(jnp.log(0.5), design_matrix.shape[1] + 1)
 
-    # neg_log_lik_partial = partial(
+    #neg_log_lik_partial = partial(
     #    neg_log_lik,
     #    M = M,
     #    S = S,
     #    intercept_design = design_matrix,
     #    rotated_z = rotated_z
-    # )
+    #)
     est_res = optimize.minimize(
-        neg_log_lik, x0=x0, method="BFGS", args=(M, S, design_matrix, rotated_z)
+        neg_log_lik, x0=x0, method="BFGS",
+        args=(M, S, design_matrix, rotated_z)
     )
     est_res_x = jnp.exp(jnp.array(est_res.x))
 
     return est_res_x
 
 
-def bootstrap(M, S, design_matrix, rotated_z=None):
-    x0 = jnp.repeat(jnp.log(0.5), design_matrix.shape[1] + 1)
+def jackknife(M, S, design_matrix, rotated_z=None):
+# pseudovalues
+    n_block = 10
+    k=S.shape[0]
 
-    h2a_bs = []
-    for i in tqdm(range(500)):
-        resampled = np.random.choice(np.arange(S.shape[0]), S.shape[0], replace=True)
-        # neg_log_lik_partial_bs = partial(
-        #    neg_log_lik,
-        #    M = M,
-        #    S = S[resampled],
-        #    intercept_design = design_matrix[resampled],
-        #    rotated_z = rotated_z[resampled]
-        # )
-        bs_res = optimize.minimize(
-            neg_log_lik,
-            x0=x0,
-            method="BFGS",
-            args=(M, S[resampled], design_matrix[resampled], rotated_z[resampled]),
+    est =  estimate(M, S, design_matrix, rotated_z)
+
+    pseudo_val = []
+    for i in tqdm(range(n_block)):
+        selected_index = np.repeat(True, k)
+        selected_index[i::n_block] = False
+        est_delblock = estimate(
+            M,
+            S[selected_index],
+            design_matrix[selected_index],
+            rotated_z[selected_index]
         )
-        h2a_bs.append(bs_res.x[0])
+        pseudo_val.append(
+            n_block*est[0] - (n_block-1)*est_delblock[0]
+        )
+    h2a_se = np.sqrt(1/n_block*np.var(pseudo_val))
 
-    h2a_se = np.std(np.exp(h2a_bs))
-
-    return h2a_se
+    return est, h2a_se

@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+import pgenlib as pg
+from scipy.linalg import block_diag
 from tqdm import tqdm
 
 from hamsta import utils
@@ -51,6 +53,15 @@ def read_rfmix_N_SVD(fname):
 
     return utils.SVD(A_mat, Q, outprefix=fname)
 
+def read_SVD_chr(svdprefix_chr):
+    U_list = [np.load(f"{svdprefix_chr}.{i}.SVD.U.npy") for i in range(1, 23)]
+    S_list = [np.load(f"{svdprefix_chr}.{i}.SVD.S.npy") for i in range(1, 23)]
+    SDpj = [np.load(f"{svdprefix_chr}.{i}.SVD.SDpj.npy") for i in range(1, 23)]
+
+    return block_diag(*U_list), np.concatenate(S_list), np.concatenate(SDpj)
+
+
+
 
 def read_SVD(svdprefix):
     U = np.load(svdprefix + ".SVD.U.npy")
@@ -59,6 +70,23 @@ def read_SVD(svdprefix):
 
     return U, S, SDpj
 
+def read_pgen(f_pgen):
+    reader = pg.PgenReader(f_pgen.encode('utf-8'))
+    dosage_arr = np.empty(
+        (reader.get_variant_ct(),reader.get_raw_sample_ct()),
+         dtype=np.float)
+
+    print(f'Reading pgen file (n, p): ({dosage_arr.shape[1]}, {dosage_arr.shape[0]})')
+
+    for i in range(dosage_arr.shape[0]):
+        reader.read_dosages(i, dosage_arr[i])
+
+    print(dosage_arr)
+
+    return dosage_arr
+
+def read_global_ancestry(fname):
+    return np.loadtxt(fname, usecols=1)
 
 if __name__ == "__main__":
     # CLI for debug only

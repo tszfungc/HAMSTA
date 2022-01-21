@@ -63,7 +63,7 @@ def estimate(M, S, design_matrix, rotated_z=None):
     est_res = utils.minimize(obj_fun, x0=x0, method="trust-ncg")
     est_res_x = jnp.exp(jnp.array(est_res.x))
 
-    return est_res_x
+    return est_res_x, est_res
 
 
 def jackknife(M, S, design_matrix, rotated_z=None):
@@ -77,17 +77,17 @@ def jackknife(M, S, design_matrix, rotated_z=None):
     """  # noqa: E501
 
     # point estimation
-    est = estimate(M, S, design_matrix, rotated_z)
+    est, optres = estimate(M, S, design_matrix, rotated_z)
 
     # pseudovalues
-    n_block = 20
+    n_block = 10
     k = S.shape[0]
 
     pseudo_val = []
     for i in tqdm(range(n_block)):
         selected_index = np.repeat(True, k)
         selected_index[i::n_block] = False
-        est_delblock = estimate(
+        est_delblock, _ = estimate(
             M,
             S[selected_index],
             design_matrix[selected_index],
@@ -109,6 +109,28 @@ def run(M, S, rotated_z=None, binsize=500):
     rotated_z = rotated_z[select_S]
     S = S[select_S]
 
+
+    # H0: single intercept = 1
+    si_est_res_x, _ = estimate(M=M,
+                               S=S,
+                               design_matrix=jnp.ones((S.shape[0], 1)),
+                               rotated_z=rotated_z)
+    #H0_negloglik = neg_log_lik(
+    #    M=M,
+    #    S=S,
+    #    intercept_design=jnp.ones((S.shape[0], 1)),
+    #    rotated_z=rotated_z,
+    #    x=jnp.concatenate(
+    #        [jnp.log(si_est_res_x[0, None]), jnp.array([0])]
+    #    )
+    #)
+
+
+    # H1
+
+
+
+
     # Prepare design matrix for intercepts
     bin_idx = np.arange(rotated_z.shape[0]) // binsize
     # group the last incomplete to the previous bin
@@ -125,29 +147,49 @@ def run(M, S, rotated_z=None, binsize=500):
         M=M, S=S, design_matrix=bin_idx_design_mat, rotated_z=rotated_z
     )
 
+
+
     # LRT
+
     H1_negloglik = neg_log_lik(
         M=M,
         S=S,
         intercept_design=bin_idx_design_mat,
         rotated_z=rotated_z,
-        x=jnp.log(est_res_x),
+        x=jnp.log(si_est_res_x)
     )
 
-    H0_negloglik = neg_log_lik(
+    H2_negloglik = neg_log_lik(
         M=M,
         S=S,
         intercept_design=bin_idx_design_mat,
         rotated_z=rotated_z,
-        x=jnp.concatenate(
-            [jnp.log(est_res_x[0, None]), jnp.repeat(0.0, est_res_x.shape[0] - 1)]
-        ),
+        x=jnp.log(est_res_x)
     )
 
-    chi2 = 2 * (H0_negloglik - H1_negloglik)
 
-    p = 1 - stats.chi2.cdf(chi2, df=est_res_x.shape[0] - 1)
-    print(f"\nh2a estimate: {est_res_x[0]} (se: {h2a_se})")
+    print(f"\nh2a estimate: {est_res_x[0]} (se: {h2a_se} )")
     print(f"intercepts estimate: {est_res_x[1:]}")
     print(f"mean intercepts estimate: {jnp.mean(est_res_x[1:])}", flush=True)
-    print(f"LRT chi2 = {chi2:.2f} and p = {p:.4e}")
+
+    print("--------")
+    print('h2a if single intercept')
+    print(f'h2a : {si_est_res_x[0]}')
+    print("--------")
+
+    #print('LRT H0: single intercept = 1')
+    #chi2 = 2 * (H0_negloglik - H1_negloglik)
+    #p = 1 - stats.chi2.cdf(chi2, df=1)
+    #print(f"LRT1 chi2 = {chi2:.2f} and p = {p:.4e}")
+
+
+    print('LRT H0: equal intercept ')
+    chi2 = 2 * (H1_negloglik - H2_negloglik)
+    p = 1 - stats.chi2.cdf(chi2, df=bin_idx_design_mat.shape[1]-1)
+    print(f"LRT2 chi2 =\t{chi2:.2f}\t, df=\t{bin_idx_design_mat.shape[1]-1}\tand p =\t{p:.4e}")
+
+
+
+
+
+

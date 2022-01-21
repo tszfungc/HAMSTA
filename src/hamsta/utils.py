@@ -32,6 +32,7 @@ def SVD(A_mat, Q, outprefix=None):
         np.save(outprefix + ".SVD.S.npy", S)
         np.save(outprefix + ".SVD.SDpj.npy", SDpj)
         print("SVD out saved to " + outprefix + ".SVD.*.npy")
+        print(f"output dimension: U ({U.shape}) S ({S.shape})")
 
     print("Finish SVD", flush=True)
 
