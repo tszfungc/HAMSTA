@@ -7,25 +7,24 @@ import scipy
 from jax import grad, jit
 from scipy import stats
 
+from hamsta import io
+
 jax.config.update("jax_enable_x64", True)
 
 
 def SVD(A_mat, Q, outprefix=None):
     # read rfmix output
-
-    # A_mat, Q = io.read_rfmix(fprefix)
-
-    A_std = stats.zscore(A_mat, axis=1)
+    A_mat = stats.zscore(A_mat, axis=1)
 
     print("Project out global ancestry", flush=True)
+    Q -= np.mean(Q)
     P = np.eye(Q.shape[0]) - np.outer(Q, Q) / np.sum(Q ** 2)
-    AtP = A_std @ P
+    A_std = A_mat.astype(np.float) @ P.astype(np.float)
 
-    SDpj = np.sqrt(np.sum(AtP ** 2, axis=1))
+    SDpj = np.sqrt(np.sum(np.multiply(A_std, A_std), axis=1))
 
     print("Running SVD", flush=True)
-
-    U, S, Vt = jnp.linalg.svd(AtP, full_matrices=False)
+    U, S, Vt = jnp.linalg.svd(A_std, full_matrices=False)
 
     if outprefix is not None:
         np.save(outprefix + ".SVD.U.npy", U)
@@ -36,12 +35,46 @@ def SVD(A_mat, Q, outprefix=None):
 
     print("Finish SVD", flush=True)
 
-    return U, S, SDpj
+    return U, S
 
 
-def rotate_Z(U, SDpj, Z, Rsq_Q=0.0):
+def PCA(LADmat, n_indiv, outprefix=None):
+    U, S2, _ = jnp.linalg.svd(LADmat)
+    S = jnp.sqrt(S2)
 
-    rotated_Z = np.sqrt(1 - Rsq_Q) * (U.T * SDpj @ Z)
+    if outprefix is not None:
+        np.save(outprefix + ".SVD.U.npy", U)
+        np.save(outprefix + ".SVD.S.npy", S)
+        np.save(outprefix + ".SVD.SDpj.npy", np.repeat(np.sqrt(n_indiv), U.shape[0]))
+        print("SVD out saved to " + outprefix + ".SVD.*.npy")
+        print(f"output dimension: U ({U.shape}) S ({S.shape})")
+
+    print("Finish SVD", flush=True)
+
+    return U, S
+
+
+def rotate_Z(svdprefix,
+             Z,
+             n_indiv,
+             multichrom=False,
+             n_S=500,
+             yvar=1.):
+
+    if multichrom:
+        rotated_Z = []
+        n_variant_cnt = 0
+        for i in range(1, 23):
+            U, _, SDpj = io.read_SVD_chr(svdprefix, i)
+            Z_range = slice(n_variant_cnt, n_variant_cnt+U.shape[0])
+            rotated_Z.append(
+                np.sqrt(yvar) * U.T @ (SDpj * Z[Z_range])
+            )
+            n_variant_cnt += U.shape[0]
+        rotated_Z = np.concatenate(rotated_Z)
+    else:
+        U, _, SDpj = io.read_SVD(svdprefix)
+        rotated_Z = np.sqrt(yvar) * U.T[:n_S] @ (SDpj * Z)
 
     return jnp.array(rotated_Z)
 
@@ -54,7 +87,7 @@ def minimize(
     method: str,
     tol: Optional[float] = None,
     options: Optional[Mapping[str, Any]] = None,
-):
+        **kwargs):
 
     if options is None:
         options = {}

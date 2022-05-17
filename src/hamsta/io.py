@@ -1,10 +1,6 @@
 import numpy as np
 import pandas as pd
 import pgenlib as pg
-from scipy.linalg import block_diag
-from tqdm import tqdm
-
-from hamsta import utils
 
 
 def read_sumstat(fname):
@@ -18,49 +14,12 @@ def read_sumstat(fname):
     return Z_series.values.squeeze()
 
 
-def read_rfmix_N_SVD(fname):
-    """Process  RFMIX output"""
+def read_SVD_chr(svdprefix_chr, chrom=None):
+    U = np.load(f"{svdprefix_chr}.{chrom}.SVD.U.npy")
+    S = np.load(f"{svdprefix_chr}.{chrom}.SVD.S.npy")
+    SDpj = np.load(f"{svdprefix_chr}.{chrom}.SVD.SDpj.npy")
 
-    # Check file exists
-
-    # Parse the header
-    f = open(fname + ".fb.tsv", "r")
-    line = next(f)
-    npop = len(line.strip().split("\t")[1:])
-    line = next(f)
-    # sample_list_header = line.strip().split("\t")[4 :: npop * 2]
-    # sample_list = list(map(lambda x: x.split(":::")[0], sample_list_header))
-
-    # traw
-    print("Reading content")
-    A_mat = []
-    for line in tqdm(list(f)):
-        line_split = line.strip().split("\t")
-        # pos = line_split[1]
-        dosage = np.float_(line_split[4 :: npop * 2]) + np.float_(
-            line_split[(4 + npop) :: npop * 2]
-        )
-
-        A_mat.append(dosage)
-
-    A_mat = np.array(A_mat)
-
-    # get Q
-    Q = np.loadtxt(fname + ".rfmix.Q", usecols=1)
-
-    print("Finish reading Shape:", end=" ")
-    print(A_mat.shape)
-
-    return utils.SVD(A_mat, Q, outprefix=fname)
-
-def read_SVD_chr(svdprefix_chr):
-    U_list = [np.load(f"{svdprefix_chr}.{i}.SVD.U.npy") for i in range(1, 23)]
-    S_list = [np.load(f"{svdprefix_chr}.{i}.SVD.S.npy") for i in range(1, 23)]
-    SDpj = [np.load(f"{svdprefix_chr}.{i}.SVD.SDpj.npy") for i in range(1, 23)]
-
-    return block_diag(*U_list), np.concatenate(S_list), np.concatenate(SDpj)
-
-
+    return U, S, SDpj
 
 
 def read_SVD(svdprefix):
@@ -70,23 +29,27 @@ def read_SVD(svdprefix):
 
     return U, S, SDpj
 
+
 def read_pgen(f_pgen):
     reader = pg.PgenReader(f_pgen.encode('utf-8'))
     dosage_arr = np.empty(
-        (reader.get_variant_ct(),reader.get_raw_sample_ct()),
-         dtype=np.float)
+        (reader.get_variant_ct(), reader.get_raw_sample_ct()),
+        dtype=np.float)
 
     print(f'Reading pgen file (n, p): ({dosage_arr.shape[1]}, {dosage_arr.shape[0]})')
 
     for i in range(dosage_arr.shape[0]):
         reader.read_dosages(i, dosage_arr[i])
 
-    print(dosage_arr)
+    psam = pd.read_csv(f_pgen[:-5]+".psam",  sep='\t', dtype={'#IID': np.str})
 
-    return dosage_arr
+    return dosage_arr, psam
+
 
 def read_global_ancestry(fname):
-    return np.loadtxt(fname, usecols=1)
+    return pd.read_csv(fname, sep='\t', header=None,
+                       dtype={0: np.str, 1: np.float})
+
 
 if __name__ == "__main__":
     # CLI for debug only
