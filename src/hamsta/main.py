@@ -59,35 +59,32 @@ def parse_args(args):
     topparser = argparse.ArgumentParser(
         description="Heritability Estimation from Admixture Mapping Summary Statistics"
     )
-    parser_ = topparser.add_subparsers(help='Choose subcommand')
+    parser_ = topparser.add_subparsers(help="Choose subcommand")
 
     # infer
-    parsera = parser_.add_parser('infer', help='Inference')
+    parsera = parser_.add_parser("infer", help="Inference")
     parsera.add_argument(
         "--version",
         action="version",
         version="HAMSTA {ver}".format(ver=__version__),
     )
 
-    parsera.add_argument("sumstat",
-                         help="Input filename of admixture mapping results")
-    parsera.add_argument("--svdprefix",
-                         help="Prefix of the SVD results")
-    parsera.add_argument("--svdprefix-chr",
-                         help="Prefix of the per chr SVD results")
-    parsera.add_argument("--nS",
-                         help="number of singular values used in inference",
-                         type=int)
-    parsera.add_argument("--n-indiv",
-                         help="number of individuals",
-                         type=int)
-    parsera.add_argument("--yvar",
-                         help="variance of the phenotype",
-                         type=float, default=1.)
-    parsera.add_argument("--fix-intercept",
-                         help="fix interecpt to be 1." ,
-                         action='store_true',
-                         default=False)
+    parsera.add_argument("sumstat", help="Input filename of admixture mapping results")
+    parsera.add_argument("--svdprefix", help="Prefix of the SVD results")
+    parsera.add_argument("--svdprefix-chr", help="Prefix of the per chr SVD results")
+    parsera.add_argument(
+        "--nS", help="number of singular values used in inference", type=int
+    )
+    parsera.add_argument("--n-indiv", help="number of individuals", type=int)
+    parsera.add_argument(
+        "--yvar", help="variance of the phenotype", type=float, default=1.0
+    )
+    parsera.add_argument(
+        "--fix-intercept",
+        help="fix interecpt to be 1.",
+        action="store_true",
+        default=False,
+    )
 
     parsera.add_argument(
         "-v",
@@ -101,7 +98,7 @@ def parse_args(args):
     parsera.set_defaults(func=infer_main)
 
     # preprocess
-    parserb = parser_.add_parser('pprocess', help='pre-process')
+    parserb = parser_.add_parser("pprocess", help="pre-process")
     parserb.add_argument(
         "-v",
         "--verbose",
@@ -111,11 +108,11 @@ def parse_args(args):
         action="store_const",
         const=logging.DEBUG,
     )
-    parserb.add_argument("--pgen", help='Path to pgen')
-    parserb.add_argument("--global-ancestry", help='Path to rfmix.Q')
-    parserb.add_argument("--LADmat", help='Path to LAD matrix')
-    parserb.add_argument("--n-indiv", help='Number of individuals', type=float)
-    parserb.add_argument("--out", help='output prefix')
+    parserb.add_argument("--pgen", help="Path to pgen")
+    parserb.add_argument("--global-ancestry", help="Path to rfmix.Q")
+    parserb.add_argument("--LADmat", help="Path to LAD matrix")
+    parserb.add_argument("--n-indiv", help="Number of individuals", type=float)
+    parserb.add_argument("--out", help="output prefix")
     parserb.set_defaults(func=pprocess_main)
 
     return topparser.parse_args(args)
@@ -133,9 +130,9 @@ def setup_logging(loglevel):
     )
 
 
-def main(args):
+def main(argv):
     """Wrapper  in a CLI fashion"""
-    args = parse_args(args)
+    args = parse_args(argv)
     setup_logging(args.loglevel)
     _logger.debug("Starting crazy calculations...")
     _logger.info("Program Starts")
@@ -163,11 +160,11 @@ def pprocess_main(args):
     if args.pgen is not None:
         Q = io.read_global_ancestry(args.global_ancestry)
         A, psam = io.read_pgen(args.pgen)
-        Q_filter = Q[np.in1d(Q[0], psam['#IID'])]
+        Q_filter = Q[np.in1d(Q[0], psam["#IID"])]
 
-        assert np.all(Q_filter[0].values == psam['#IID'].values)
+        assert np.all(Q_filter[0].values == psam["#IID"].values)
 
-        print('pass')
+        print("pass")
 
         utils.SVD(A, Q_filter.values[:, 1], outprefix=args.out)
 
@@ -186,6 +183,10 @@ def infer_main(args):
 
     # Input Z
     Z = io.read_sumstat(args.sumstat)
+    # read SVD
+    S = io.read_singular_val(args.svdprefix, args.svdprefix_chr, args.nS)
+    n_S = args.nS
+
     _logger.info(
         f"""
 Read sumstat; Number of markers: {Z.shape[0]}
@@ -194,9 +195,6 @@ lambda GC (median) = {np.median(Z**2)}
     """
     )
 
-    # read SVD
-
-    n_S = args.nS
     # read SVD prefix
     if args.svdprefix is not None:
         rotated_z = utils.rotate_Z(
@@ -205,9 +203,8 @@ lambda GC (median) = {np.median(Z**2)}
             multichrom=False,
             n_S=n_S,
             n_indiv=args.n_indiv,
-            yvar=args.yvar
+            yvar=args.yvar,
         )
-        S = np.load(f'{args.svdprefix}.SVD.S.npy')[:n_S]
 
     if args.svdprefix_chr is not None:
         rotated_z = utils.rotate_Z(
@@ -216,11 +213,7 @@ lambda GC (median) = {np.median(Z**2)}
             multichrom=True,
             n_S=n_S,
             n_indiv=args.n_indiv,
-            yvar=args.yvar
-        )
-
-        S = np.concatenate(
-            [np.load(f"{args.svdprefix_chr}.{i}.SVD.S.npy") for i in range(1, 23)]
+            yvar=args.yvar,
         )
 
     _logger.info(
@@ -239,83 +232,11 @@ S shape: {S.shape}
         rotated_z=rotated_z,
         binsize=rotated_z.shape[0],
         yvar=args.yvar,
-        fix_intercept=args.fix_intercept
-    )
-
-    _logger.info("Summary stat rotated")
-    estimation_jackknife.run(
-        N=args.n_indiv,
-        M=Z.shape[0],
-        S=S,
-        rotated_z=rotated_z,
-        binsize=500,
-        yvar=args.yvar,
-        fix_intercept=args.fix_intercept
+        fix_intercept=args.fix_intercept,
     )
 
     _logger.info("Program ends")
     sys.exit(0)
-
-
-def infer2_main(args):
-
-    # main procedures
-
-    # Input Z
-    Z = io.read_beta(args.sumstat)
-    _logger.info(
-        f"""
-Read sumstat; Number of markers: {Z.shape[0]}
-lambda GC (mean) = {np.mean(Z**2)}
-lambda GC (median) = {np.median(Z**2)}
-    """
-    )
-
-    # read SVD
-
-    n_S = args.nS
-    # read SVD prefix
-    if args.svdprefix is not None:
-        rotated_z = utils.rotate_Z(
-            args.svdprefix,
-            Z,
-            multichrom=False,
-            n_S=n_S,
-            n_indiv=args.n_indiv,
-        )
-        S = np.load(f'{args.svdprefix}.SVD.S.npy')[:n_S]
-
-    if args.svdprefix_chr is not None:
-        rotated_z = utils.rotate_Z(
-            args.svdprefix_chr,
-            Z,
-            multichrom=True,
-            n_S=n_S,
-            n_indiv=args.n_indiv,
-        )
-
-        S = np.concatenate(
-            [np.load(f"{args.svdprefix_chr}.{i}.SVD.S.npy") for i in range(1, 23)]
-        )
-
-    _logger.info(
-        f"""
-Read SVD; Number of markers: {Z.shape}
-S shape: {S.shape}
-    """
-    )
-
-    # After having M, S, rotated Z
-    _logger.info("Summary stat rotated")
-    estimation_jackknife.run(
-        N=args.n_indiv,
-        M=Z.shape[0],
-        S=S,
-        rotated_z=rotated_z,
-        binsize=rotated_z.shape[0]
-    )
-
-    _logger.info("Program ends")
 
 
 def run():
