@@ -135,13 +135,14 @@ def jackknife(N, M, S, design_matrix, rotated_z=None, n_block=10, fix_intercept=
     h2a_se = np.sqrt(1 / n_block * np.var(pseudo_val, ddof=1))
     s2e_se = np.sqrt(1 / n_block * np.var(pseudo_val_int, ddof=1))
 
-    return est, h2a_se, s2e_se
+    return optres, h2a_se, s2e_se
 
 
 def LRT(opt_res1, opt_res0):
     H1, H0 = opt_res1.fun, opt_res0.fun
     chi2 = 2 * (H0 - H1)
-    p = 1 - stats.chi2.cdf(chi2, df=1)
+    df = len(opt_res1.x) - len(opt_res0.x)
+    p = 1 - stats.chi2.cdf(chi2, df=df)
     return {"chi2": chi2, "p": p}
 
 
@@ -156,28 +157,7 @@ def run(N, M, S, rotated_z=None, binsize=500, yvar=1, fix_intercept=False):
     S = S[select_S]
     S = jnp.array(S)
 
-    H1_ests, H1_h2a_se, H1_s2e_se = jackknife(
-        N=N, M=M, S=S, design_matrix=jnp.ones((S.shape[0], 1)), rotated_z=rotated_z
-    )
-
-    print(f"h2a: {H1_ests[0]/yvar} (se: {H1_h2a_se/yvar})", flush=True)
-    print(f"intercept: {jnp.mean(H1_ests[1:])/yvar} (se: {H1_s2e_se/yvar})", flush=True)
-
-    # LRT testing h2a
-
-    # H1: single intercept
-    H1_est, H1_est_res = estimate(
-        N=N,
-        M=M,
-        S=S,
-        design_matrix=jnp.ones((S.shape[0], 1)),
-        rotated_z=rotated_z,
-        hypothesis=1,
-    )
-
-    print(f"Optimization success: {H1_est_res.success}")
-    print(f"{H1_est_res.message}")
-
+    # H0: h2a=0, single intercept
     H0_est, H0_est_res = estimate(
         N=N,
         M=M,
@@ -187,88 +167,61 @@ def run(N, M, S, rotated_z=None, binsize=500, yvar=1, fix_intercept=False):
         hypothesis=0,
     )
 
-    print("LRT H0: h2a = 0")
-    lrt_res = LRT(H1_est_res, H0_est_res)
-    print(f"LRT1 chi2 = {lrt_res['chi2']:.2f} and p = {lrt_res['p']:.4e}")
-
-    print(
-        "#RE "
-        + f"{H1_ests[0]/yvar} "
-        + f"{H1_h2a_se/yvar} "
-        + f"{np.mean(H1_ests[1:])/yvar} "
-        + f"{H1_s2e_se/yvar} "
-        + f"{lrt_res['p']:.4e}"
+    # H1: h2a, single intercept
+    H1_est_res, H1_h2a_se, H1_s2e_se = jackknife(
+        N=N, M=M, S=S, design_matrix=jnp.ones((S.shape[0], 1)), rotated_z=rotated_z
     )
 
-    # H2
+    print(f"h2a: {H1_est_res.x[0]/yvar} (se: {H1_h2a_se/yvar})", flush=True)
+    print(
+        f"intercept: {jnp.mean(H1_est_res.x[1:])/yvar} (se: {H1_s2e_se/yvar})",
+        flush=True,
+    )
+
+    print(f"Optimization success: {H1_est_res.success}")
+    print(f"{H1_est_res.message}")
+
+    # H2: h2a, multiple intercepts
 
     # Prepare design matrix for intercepts
-    # bin_idx = np.arange(rotated_z.shape[0]) // binsize
-    # # group the last incomplete to the previous bin
-    # if rotated_z.shape[0] % binsize != 0:
-    #     bin_idx[bin_idx == max(bin_idx)] -= 1
-    # bin_idx_design_mat = pd.get_dummies(bin_idx).values
+    multi_intercept_design = utils.make_intercept_design(rotated_z.shape[0], binsize)
 
-    # bin_idx_design_mat = jnp.array(bin_idx_design_mat)
-
-    # # Estimation
-    # H2_est, H2_h2a_se, H2_s2e_se = jackknife(
-    #     N=N,
-    #     M=M,
-    #     S=S,
-    #     design_matrix=bin_idx_design_mat,
-    #     rotated_z=rotated_z,
-    #     fix_intercept=fix_intercept
-    # )
+    # Estimation
+    H2_est_res, H2_h2a_se, H2_s2e_se = jackknife(
+        N=N,
+        M=M,
+        S=S,
+        design_matrix=multi_intercept_design,
+        rotated_z=rotated_z,
+        fix_intercept=fix_intercept,
+    )
 
     # LRT
+    print("LRT H0: h2a = 0; single intercept")
+    print("LRT H1: h2a !=0; single interecpt")
+    print("LRT H2: h2a !=0; multiple interecpt")
 
-    # H1_negloglik = neg_log_lik(
-    #    N=N,
-    #    M=M,
-    #    S=S,
-    #    intercept_design=bin_idx_design_mat,
-    #    rotated_z=rotated_z,
-    #    x=jnp.log(H1_est)
-    # )
+    lrt_res1 = LRT(H1_est_res, H0_est_res)
+    lrt_res2 = LRT(H2_est_res, H1_est_res)
 
-    # H2_negloglik = neg_log_lik(
-    #    N=N,
-    #    M=M,
-    #    S=S,
-    #    intercept_design=bin_idx_design_mat,
-    #    rotated_z=rotated_z,
-    #    x=jnp.log(H2_est)
-    # )
+    print(f"LRT H1/H0: chi2 = {lrt_res1['chi2']:.2f} and p = {lrt_res1['p']:.4e}")
+    H1_x = np.exp(H1_est_res.x)
+    print(
+        "#RE1 "
+        + f"{H1_x[0]/yvar} "
+        + f"{H1_h2a_se/yvar} "
+        + f"{np.mean(H1_x[1:])/yvar} "
+        + f"{H1_s2e_se/yvar} "
+        + f"{lrt_res1['p']:.4e}"
+    )
+    print(f"LRT H2/H1: chi2 = {lrt_res2['chi2']:.2f} and p = {lrt_res2['p']:.4e}")
 
-    # DEBUG
-
-
-#    print("Genetics", N/M*S**2*H2_est[0])
-#    print("Non Genetics", H2_est[1])
-#    print("scaled rZ", rotated_z/S)
-#    print("scaled rZ var", np.var((rotated_z/S/np.sqrt(N))[:100]))
-
-# print(f"\nh2a estimate: {H2_est[0]} (se: {H2_h2a_se} )")
-# print(f"intercepts estimate: {H2_est[1:]} (se: {H2_s2e_se} )")
-# print(f"mean intercepts estimate: {jnp.mean(H2_est[1:])}", flush=True)
-
-# print(f"s2a/vP: {H2_est[0]/np.sum(H2_est)}", flush=True)
-# print(f"s2a/vY: {H2_est[0]/yvar} (se: {H2_h2a_se/yvar})", flush=True)
-# print(
-#     f"intercept/vY: {jnp.mean(H2_est[1:])/yvar} (se: {H2_s2e_se/yvar})",
-#     flush=True)
-
-# print("--------")
-# print('h2a if single intercept')
-# print(f'Under H0: h2a : {H1_est[0]}')
-# print("--------")
-
-# print('LRT H0: single intercept = 1')
-# chi2 = 2 * (H0_negloglik - H1_negloglik)
-# p = 1 - stats.chi2.cdf(chi2, df=1)
-# print(f"LRT1 chi2 = {chi2:.2f} and p = {p:.4e}")
-
-# print('LRT H0: equal intercept ')
-# chi2 = 2 * (H1_negloglik - H2_negloglik)
-# p = 1 - stats.chi2.cdf(chi2, df=bin_idx_design_mat.shape[1]-1)
+    H2_x = np.exp(H2_est_res.x)
+    print(
+        "#RE2 "
+        + f"{H2_x[0]/yvar} "
+        + f"{H2_h2a_se/yvar} "
+        + f"{np.mean(H2_x[1:])/yvar} "
+        + f"{H2_s2e_se/yvar} "
+        + f"{lrt_res2['p']:.4e}"
+    )

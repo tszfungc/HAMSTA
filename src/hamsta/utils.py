@@ -3,6 +3,7 @@ from typing import Any, Callable, Mapping, Optional
 import jax
 import jax.numpy as jnp
 import numpy as np
+import pandas as pd
 import scipy
 from jax import grad, jit
 from scipy import stats
@@ -10,6 +11,17 @@ from scipy import stats
 from hamsta import io
 
 jax.config.update("jax_enable_x64", True)
+
+
+def make_intercept_design(Z_dim, binsize):
+    bin_idx = np.arange(Z_dim) // binsize
+    # group the last incomplete to the previous bin
+    if Z_dim % binsize != 0:
+        bin_idx[bin_idx == max(bin_idx)] -= 1
+    bin_idx_design_mat = pd.get_dummies(bin_idx).values
+
+    bin_idx_design_mat = jnp.array(bin_idx_design_mat)
+    return bin_idx_design_mat
 
 
 def SVD(A_mat, Q, outprefix=None):
@@ -54,22 +66,16 @@ def PCA(LADmat, n_indiv, outprefix=None):
     return U, S
 
 
-def rotate_Z(svdprefix,
-             Z,
-             n_indiv,
-             multichrom=False,
-             n_S=500,
-             yvar=1.):
+def rotate_Z(svdprefix, Z, n_indiv, multichrom=False, n_S=500, yvar=1.0):
 
     if multichrom:
         rotated_Z = []
         n_variant_cnt = 0
         for i in range(1, 23):
             U, _, SDpj = io.read_SVD_chr(svdprefix, i)
-            Z_range = slice(n_variant_cnt, n_variant_cnt+U.shape[0])
-            rotated_Z.append(
-                np.sqrt(yvar) * U.T @ (SDpj * Z[Z_range])
-            )
+            Z_range = slice(n_variant_cnt, n_variant_cnt + U.shape[0])
+            # import pdb; pdb.set_trace()
+            rotated_Z.append(np.sqrt(yvar) * U.T @ (SDpj * Z[Z_range]))
             n_variant_cnt += U.shape[0]
         rotated_Z = np.concatenate(rotated_Z)
     else:
@@ -87,7 +93,8 @@ def minimize(
     method: str,
     tol: Optional[float] = None,
     options: Optional[Mapping[str, Any]] = None,
-        **kwargs):
+    **kwargs,
+):
 
     if options is None:
         options = {}

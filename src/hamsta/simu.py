@@ -8,8 +8,8 @@ from hamsta import io
 
 # input
 pgen = sys.argv[1]
-psam = pgen.replace('pgen', 'psam')
-df = pd.read_csv(psam, sep='\t')
+psam = pgen.replace("pgen", "psam")
+df = pd.read_csv(psam, sep="\t")
 
 # hsq
 hsq = np.float64(sys.argv[2])
@@ -30,12 +30,12 @@ for i in range(50):
 
     std_norm_err = np.random.normal(size=(N, 1))
 
-    cpnt_A = np.sqrt(hsq)*stats.zscore(A_std @ std_norm_effect[:, None], axis=0)
-    cpnt_e = np.sqrt(1-hsq)*stats.zscore(std_norm_err, axis=0)
+    cpnt_A = np.sqrt(hsq) * stats.zscore(A_std @ std_norm_effect[:, None], axis=0)
+    cpnt_e = np.sqrt(1 - hsq) * stats.zscore(std_norm_err, axis=0)
     pheno = (cpnt_A + cpnt_e).flatten()
 
     df[i] = pheno
 
-df = df.drop('SEX', axis=1)
+df = df.drop("SEX", axis=1)
 print(df)
-df.to_csv(f"hsq{hsq:.3f}_{n_signal}.pheno", index=None, sep='\t')
+df.to_csv(f"hsq{hsq:.3f}_{n_signal}.pheno", index=None, sep="\t")

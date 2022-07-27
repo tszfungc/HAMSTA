@@ -85,6 +85,9 @@ def parse_args(args):
         action="store_true",
         default=False,
     )
+    parsera.add_argument(
+        "--binsize", help="Bin size for multiple intercepts mode", type=int, default=500
+    )
 
     parsera.add_argument(
         "-v",
@@ -230,7 +233,7 @@ S shape: {S.shape}
         M=Z.shape[0],
         S=S,
         rotated_z=rotated_z,
-        binsize=rotated_z.shape[0],
+        binsize=args.binsize,
         yvar=args.yvar,
         fix_intercept=args.fix_intercept,
     )
