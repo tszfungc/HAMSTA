@@ -23,9 +23,16 @@
         :alt: Twitter
         :target: https://twitter.com/HAMSTA
 
-.. image:: https://img.shields.io/badge/-PyScaffold-005CA0?logo=pyscaffold
-    :alt: Project generated with PyScaffold
-    :target: https://pyscaffold.org/
+    .. image:: https://img.shields.io/badge/-PyScaffold-005CA0?logo=pyscaffold
+        :alt: Project generated with PyScaffold
+        :target: https://pyscaffold.org/
+
+
+.. image:: https://github.com/tszfungc/HAMSTA/actions/workflows/docs.yml/badge.svg
+    :alt: Documentation status
+    :target: https://tszfungc.github.io/HAMSTA/
+
+|
 
 |
 

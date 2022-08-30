@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import pgenlib as pg
 
 
 def read_singular_val(svdprefix, svdprefix_chr, nS):
@@ -46,22 +45,6 @@ def read_SVD(svdprefix):
     SDpj = np.load(svdprefix + ".SVD.SDpj.npy")
 
     return U, S, SDpj
-
-
-def read_pgen(f_pgen):
-    reader = pg.PgenReader(f_pgen.encode("utf-8"))
-    dosage_arr = np.empty(
-        (reader.get_variant_ct(), reader.get_raw_sample_ct()), dtype=np.float
-    )
-
-    print(f"Reading pgen file (n, p): ({dosage_arr.shape[1]}, {dosage_arr.shape[0]})")
-
-    for i in range(dosage_arr.shape[0]):
-        reader.read_dosages(i, dosage_arr[i])
-
-    psam = pd.read_csv(f_pgen[:-5] + ".psam", sep="\t", dtype={"#IID": np.str})
-
-    return dosage_arr, psam
 
 
 def read_global_ancestry(fname):

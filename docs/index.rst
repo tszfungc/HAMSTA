@@ -2,7 +2,7 @@
 HAMSTA
 ======
 
-This is the documentation of **HAMSTA**.
+Heritability estimation from admixture mapping summary statistics
 
 .. note::
 
@@ -27,14 +27,17 @@ Contents
 ========
 
 .. toctree::
-   :maxdepth: 2
+    :maxdepth: 2
+    :caption: User Guide
 
-   Overview <readme>
-   Contributions & Help <contributing>
-   License <license>
-   Authors <authors>
-   Changelog <changelog>
-   Module Reference <api/modules>
+    Overview <readme>
+    Module Reference <api>
+
+.. toctree::
+    :caption: Development
+
+    Contributions & Help <contributing>
+    Changelog <changelog>
 
 
 Indices and tables

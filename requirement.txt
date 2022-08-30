@@ -1,0 +1,4 @@
+numpy
+jax[cpu]
+tqdm
+pandas

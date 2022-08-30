@@ -51,3 +51,7 @@ MANIFEST
 # Per-project virtualenvs
 .venv*/
 .conda*/
+
+
+# To be completed
+src/hamsta/simu.py
