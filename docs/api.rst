@@ -19,9 +19,7 @@ Functions
 .. autosummary::
     :toctree: generated
 
-    HAMSTA.negloglik
     HAMSTA.fit
-    HAMSTA.lrt
 
 
 .. currentmodule:: hamsta.io
