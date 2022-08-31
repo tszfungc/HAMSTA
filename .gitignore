@@ -43,7 +43,7 @@ build/*
 dist/*
 sdist/*
 docs/api/*
-docs/_rst/*
+docs/generated/*
 docs/_build/*
 cover/*
 MANIFEST
