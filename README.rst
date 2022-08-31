@@ -28,7 +28,7 @@
         :target: https://pyscaffold.org/
 
 
-.. image:: https://github.com/tszfungc/HAMSTA/actions/workflows/docs.yml/badge.svg
+.. image:: https://github.com/tszfungc/HAMSTA/actions/workflows/deploydocs.yml/badge.svg
     :alt: Documentation status
     :target: https://tszfungc.github.io/HAMSTA/
 
