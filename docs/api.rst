@@ -20,6 +20,8 @@ Functions
     :toctree: generated
 
     HAMSTA.fit
+    HAMSTA.to_dict
+    HAMSTA.to_dataframe
 
 
 .. currentmodule:: hamsta.io

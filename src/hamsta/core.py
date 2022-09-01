@@ -1,9 +1,10 @@
 from functools import partial
-from typing import Callable, List
+from typing import Any, Callable, Dict, List
 
 import jax
 import jax.numpy as jnp
 import numpy as np
+import pandas as pd
 import scipy
 from jax import grad, jit
 from scipy import stats
@@ -62,6 +63,15 @@ def _rotate(U: np.ndarray, S: np.ndarray, Z: np.ndarray):
     return rotated_Z
 
 
+def _lrt(ell0, ell1, dof):
+    """Likelihood ratio test"""
+
+    chisq = -2 * (ell0 - ell1)
+    p = 1 - stats.chi2.cdf(chisq, dof)
+
+    return {"chisq": chisq, "dof": dof, "p": p}
+
+
 # Model
 def _negloglik(
     param: List[float],
@@ -104,10 +114,26 @@ class HAMSTA:
     def __init__(self, k: int = None, S_thres: float = 1e-3, **kwargs):
         self.k = k
         self.S_thres = S_thres
+        self.result: Dict[str, Any] = {}
 
-    def summary(self):
-        """Summarize estimation result"""
-        pass
+    def to_dict(self):
+        """Summarize estimation result in dict"""
+        return self.result
+
+    def to_dataframe(self):
+        """Summarize estimation result in dataframe"""
+        # all results are either single object or np.ndarray
+        pd_dict = {}
+        for k, v in self.result.items():
+            if isinstance(v, np.ndarray):
+                for idx, vv in enumerate(v):
+                    pd_dict.update({f"{k}_{idx}": vv})
+            else:
+                pd_dict.update({k: v})
+
+        result_df = pd.DataFrame(pd_dict, index=[0])
+
+        return result_df
 
     # Estimation
     def fit(
@@ -128,6 +154,8 @@ class HAMSTA:
             U: the matrix U from SVD results of A = USV'
             S: the matrix S from SVD results of A = USV'
             M: Number of markers
+            constraints: constraints applied in the optimization
+            jackknife: If true, compute the jackknife standard error
 
 
         """
@@ -171,31 +199,28 @@ class HAMSTA:
 
         # store results
         # =====
-        self.parameters = parameter
-        self.h0 = h0
-        self.h1 = h1
-        self.p = self.lrt(h0, h1, len(constraints0) - len(constraints))["p"]
+        self.result.update(
+            {
+                "parameter": parameter,
+                "h0": h0,
+                "h1": h1,
+                "p": _lrt(h0, h1, len(constraints0) - len(constraints))["p"],
+            }
+        )
 
         # jackknife
         # =========
         if jackknife:
-            self._jackknife(
+            se = self._jackknife(
                 param_full=parameter,
                 rotated_Z=rotated_Z,
                 S=S,
                 M=M,
                 constraints=constraints,
             )
+            self.result.update({"SE": se})
 
         return self
-
-    def lrt(self, ell0, ell1, dof):
-        """Likelihood ratio test"""
-
-        chisq = -2 * (ell0 - ell1)
-        p = 1 - stats.chi2.cdf(chisq, dof)
-
-        return {"chisq": chisq, "dof": dof, "p": p}
 
     def _jackknife(
         self,
@@ -208,13 +233,16 @@ class HAMSTA:
     ):
 
         pseudo_vals = []
+        hyperparam = vars(self).copy()
+        if "result" in hyperparam:
+            hyperparam.pop("result")
 
         k = S.shape[0]
 
         for i in range(num_blocks):
             selected_index = np.repeat(True, k)
             selected_index[i::num_blocks] = False
-            pseudo_hamsta = HAMSTA(**vars(self))
+            pseudo_hamsta = HAMSTA(**hyperparam)
 
             pseudo_hamsta.fit(
                 rotated_Z=rotated_Z[selected_index],
@@ -223,13 +251,12 @@ class HAMSTA:
                 jackknife=False,
             )
             pseudo_val = (
-                num_blocks * param_full - (num_blocks - 1) * pseudo_hamsta.parameters
+                num_blocks * param_full
+                - (num_blocks - 1) * pseudo_hamsta.result["parameter"]
             )
             pseudo_vals.append(pseudo_val)
 
         pseudo_vals = np.array(pseudo_vals)
         jk_se = np.sqrt(1 / num_blocks * np.var(pseudo_vals, ddof=1, axis=0))
 
-        self.jk_se = jk_se
-
-        return self
+        return jk_se
