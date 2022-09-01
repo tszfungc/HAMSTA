@@ -1,6 +1,8 @@
 import sys
 
 from .core import HAMSTA
+import hamsta.io 
+import hamsta.preprocess 
 
 __all__ = [
     "HAMSTA",
