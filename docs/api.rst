@@ -34,3 +34,17 @@ I/O
 
     read_sumstat
     read_global_ancestry
+
+
+
+.. currentmodule:: hamsta.preprocess
+
+Preprocess
+==========
+
+.. autosummary::
+    :toctree: generated/
+
+    SVD
+
+
