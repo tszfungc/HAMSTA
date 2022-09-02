@@ -24,6 +24,8 @@ def SVD(
             local ancestry matrix (marker, sample)
         Q:
             global ancestry or covariates to be projected (sample, n_covariate)
+        k:
+            number of components computed in truncated
         outprefix:
             outprefix for writing SVD results.
             When set, write to ``{outprefix}.SVD.U.npy`` and ``{outprefix}.SVD.S.npy``
