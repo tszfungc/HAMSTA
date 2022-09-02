@@ -31,6 +31,7 @@ Contents
     :caption: User Guide
 
     Overview <readme>
+    Quickstart <quickstart>
     Module Reference <api>
 
 .. toctree::

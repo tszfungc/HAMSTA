@@ -2,3 +2,5 @@ numpy
 jax[cpu]
 tqdm
 pandas
+scikit-learn
+xarray

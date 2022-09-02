@@ -1,4 +1,5 @@
 import logging
+from typing import Tuple
 
 import jax.numpy as jnp
 import numpy as np
@@ -95,8 +96,6 @@ def read_global_ancestry(fname: str, sample_colname: str, **pd_kwargs) -> pd.Dat
 
     """
 
-    _logger.info("testing")
-
     default_pd_kwargs = {"sep": "\t"}
     default_pd_kwargs.update(pd_kwargs)
     Q_df = pd.read_csv(fname, **default_pd_kwargs, dtype={sample_colname: str})
@@ -105,6 +104,57 @@ def read_global_ancestry(fname: str, sample_colname: str, **pd_kwargs) -> pd.Dat
     Q_df = Q_df.set_index("sample").reset_index()
 
     return Q_df
+
+
+def read_fbtsv(
+    fname: str,
+    ancestry: str,
+) -> Tuple[jnp.ndarray, pd.DataFrame]:
+    """Reader for RFMIX .fb.tsv output
+    | Reading RFMIX .fb.tsv output as probability dosages
+
+    Args:
+        fname: Path to RFMIX output
+        ancestry: The ancestry to be extracted
+
+    Returns:
+        a local ancestry matrix (marker, sample) and list of sample
+    """
+
+    # Read ancestry line
+    f_handle = open(fname, "r")
+    comment = f_handle.readline()
+    pops = comment.strip().split("\t")[1:]
+    n_pops = len(pops)
+    popdict = {pops[i]: i for i in range(n_pops)}
+    popidx = popdict[ancestry]
+
+    # header line
+    # RFMIX output dim: (marker , (sample x ploidy x ancestry))
+    header = f_handle.readline()
+    indiv = list(map(lambda x: x.split(":::")[0], header.strip().split("\t")[4:]))
+    indiv = np.array(indiv[:: (2 * n_pops)], dtype=str)
+    N = indiv.shape[0]
+
+    # data lines
+    # Reshape to (marker, sample, ploidy, ancestry) array
+    # choose ancestry and sum over ploidy
+    LA_matrix = []  # read into (marker by (sample x ploidy x ancestry))
+    for i, line in enumerate(f_handle):
+        if i % 100 == 0:
+            logging.debug(f"processing {i}-th marker")
+
+        line_split = line.strip().split("\t")
+        LA_matrix.append(line_split[4:])
+
+    LA_matrix = jnp.float_(LA_matrix).reshape(-1, N, 2, n_pops)
+    LA_matrix = LA_matrix[:, :, :, popidx]
+    LA_matrix = jnp.sum(LA_matrix, axis=2)
+
+    # make individual list
+    sample_df = pd.DataFrame({"sample": indiv})
+
+    return LA_matrix, sample_df
 
 
 if __name__ == "__main__":
