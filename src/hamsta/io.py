@@ -1,7 +1,8 @@
+import logging
+
+import jax.numpy as jnp
 import numpy as np
 import pandas as pd
-import logging
-import jax.numpy as jnp
 
 _logger = logging.getLogger(__name__)
 
@@ -21,9 +22,9 @@ def read_singular_val(svdprefix, svdprefix_chr, nS):
 
 def read_sumstat(
     fname: str,
-    Z_colname: str = 'Z', 
+    Z_colname: str = "Z",
     **pd_kwargs,
-    ) -> jnp.ndarray:
+) -> jnp.ndarray:
 
     """Summary statistics reader
 
@@ -31,10 +32,10 @@ def read_sumstat(
         fname: filename of the genome-wide scan results
         Z_colname: colname of the Z
         pd_kwargs: keyword arguments passed to pandas
-    
+
     """
 
-    default_pd_kwargs = {'sep': '\t'}
+    default_pd_kwargs = {"sep": "\t"}
     default_pd_kwargs.update(pd_kwargs)
 
     df = pd.read_csv(fname, **default_pd_kwargs)
@@ -64,15 +65,12 @@ def read_SVD(svdprefix):
     return U, S, SDpj
 
 
-def read_global_ancestry(
-    fname: str,
-    sample_colname: str,
-    **pd_kwargs
-    ) -> pd.DataFrame:
+def read_global_ancestry(fname: str, sample_colname: str, **pd_kwargs) -> pd.DataFrame:
     """Global ancestry reader
 
-    The sample column will be stored in strings. All other keyword arguments will be passed to pandas.read_csv
-    
+    | The sample column will be stored in strings.
+    | All other keyword arguments will be passed to pandas.read_csv
+
     Args:
         fname: filename of the global ancestry file
         sample_colname: column names of the sample
@@ -97,14 +95,14 @@ def read_global_ancestry(
 
     """
 
-    _logger.info('testing')
+    _logger.info("testing")
 
-    default_pd_kwargs = {'sep': '\t'}
+    default_pd_kwargs = {"sep": "\t"}
     default_pd_kwargs.update(pd_kwargs)
-    Q_df =  pd.read_csv(fname, **default_pd_kwargs, dtype={sample_colname: str})
-    Q_df = Q_df.rename({sample_colname: 'sample'}, axis=1)
+    Q_df = pd.read_csv(fname, **default_pd_kwargs, dtype={sample_colname: str})
+    Q_df = Q_df.rename({sample_colname: "sample"}, axis=1)
 
-    Q_df = Q_df.set_index('sample').reset_index()
+    Q_df = Q_df.set_index("sample").reset_index()
 
     return Q_df
 

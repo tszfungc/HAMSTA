@@ -46,5 +46,3 @@ Preprocess
     :toctree: generated/
 
     SVD
-
-

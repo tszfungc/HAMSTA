@@ -1,15 +1,8 @@
-from typing import Any, Callable, Mapping, Optional, Tuple
 import logging
+from typing import Tuple
 
-import jax
 import jax.numpy as jnp
 import numpy as np
-import pandas as pd
-import scipy
-from jax import grad, jit
-from scipy import stats
-
-from hamsta import io
 
 _logger = logging.getLogger(__name__)
 
@@ -17,18 +10,18 @@ _logger = logging.getLogger(__name__)
 def SVD(
     A: jnp.ndarray,
     Q: jnp.ndarray,
-    outprefix: str=None,
-    )-> Tuple[jnp.ndarray, jnp.ndarray]:
-    """jax numpy SVD, with covariate and output options. 
-    
-    Args: 
-        A: 
+    outprefix: str = None,
+) -> Tuple[jnp.ndarray, jnp.ndarray]:
+    """jax numpy SVD, with covariate and output options.
+
+    Args:
+        A:
             | local ancestry matrix (marker, sample)
-        Q: 
+        Q:
             | global ancestry or covariates to be projected (sample, n_covariate)
-        outprefix: 
-            | outprefix for writing SVD results. 
-            | When set, ``{outprefix}.SVD.U.npy`` and ``{outprefix}.SVD.S.npy`` will be written
+        outprefix:
+            | outprefix for writing SVD results.
+             When set, write to ``{outprefix}.SVD.U.npy`` and ``{outprefix}.SVD.S.npy``
 
 
     Returns:
@@ -38,7 +31,7 @@ def SVD(
 
     # Standardize
     _logger.info("Standardize local ancestry")
-    A = (A - A.mean(axis=1, keepdims=True))/A.std(axis=1, keepdims=True)
+    A = (A - A.mean(axis=1, keepdims=True)) / A.std(axis=1, keepdims=True)
 
     # Projection
     _logger.info(f"Project out global ancestry : {Q.shape[0]}")
@@ -60,4 +53,3 @@ def SVD(
         _logger.info(f"output dimension: U ({U.shape}) S ({S.shape})")
 
     return U, S
- 
