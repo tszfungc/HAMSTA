@@ -1,5 +1,10 @@
+import logging
+
+import jax.numpy as jnp
 import numpy as np
 import pandas as pd
+
+_logger = logging.getLogger(__name__)
 
 
 def read_singular_val(svdprefix, svdprefix_chr, nS):
@@ -15,20 +20,33 @@ def read_singular_val(svdprefix, svdprefix_chr, nS):
     return S_
 
 
-def read_sumstat(fname):
-    df = pd.read_csv(fname, sep="\t")
+def read_sumstat(
+    fname: str,
+    Z_colname: str = "Z",
+    **pd_kwargs,
+) -> jnp.ndarray:
 
-    Z_colname = ["Z", "T_STAT", "STAT", "ZSCORE", "Z-SCORE", "GC_ZSCORE"]
+    """Summary statistics reader
 
-    Z_series = df.iloc[:, np.in1d(df.columns, Z_colname)]
-    assert Z_series.shape[1] == 1, "More than 1 columns of test statistcs found."
+    Args:
+        fname: filename of the genome-wide scan results
+        Z_colname: colname of the Z
+        pd_kwargs: keyword arguments passed to pandas
 
-    # Add warning NA
+    """
 
-    Z_ = Z_series.values.squeeze()
-    Z_[np.isnan(Z_)] = 0.0
+    default_pd_kwargs = {"sep": "\t"}
+    default_pd_kwargs.update(pd_kwargs)
 
-    return Z_
+    df = pd.read_csv(fname, **default_pd_kwargs)
+
+    Z_series = df[[Z_colname]]
+
+    Z = Z_series.values.squeeze()
+    Z[np.isnan(Z)] = 0.0
+    Z = jnp.array(Z)
+
+    return Z
 
 
 def read_SVD_chr(svdprefix_chr, chrom=None):
@@ -47,11 +65,47 @@ def read_SVD(svdprefix):
     return U, S, SDpj
 
 
-def read_global_ancestry(fname):
-    return pd.read_csv(fname, sep="\t", header=None, dtype={0: np.str, 1: np.float})
+def read_global_ancestry(fname: str, sample_colname: str, **pd_kwargs) -> pd.DataFrame:
+    """Global ancestry reader
+
+    | The sample column will be stored in strings.
+    | All other keyword arguments will be passed to pandas.read_csv
+
+    Args:
+        fname: filename of the global ancestry file
+        sample_colname: column names of the sample
+
+    Example
+    -------
+    >>> from hamsta.io import read_global_ancestry
+    >>> Q_df = read_global_ancestry("tests/testdata/example.rfmix.Q",
+    ...     sample_colname="#sample", skiprows=1)
+    >>> Q_df.head()
+       sample  HCB  JPT
+    0  HCB182  1.0  0.0
+    1  HCB190  1.0  0.0
+    2  HCB191  1.0  0.0
+    3  HCB193  1.0  0.0
+    4  HCB194  0.5  0.5
+    >>> Q_df.dtypes
+    sample     object
+    HCB       float64
+    JPT       float64
+    dtype: object
+
+    """
+
+    _logger.info("testing")
+
+    default_pd_kwargs = {"sep": "\t"}
+    default_pd_kwargs.update(pd_kwargs)
+    Q_df = pd.read_csv(fname, **default_pd_kwargs, dtype={sample_colname: str})
+    Q_df = Q_df.rename({sample_colname: "sample"}, axis=1)
+
+    Q_df = Q_df.set_index("sample").reset_index()
+
+    return Q_df
 
 
 if __name__ == "__main__":
-    # CLI for debug only
-    # read_rfmix(sys.argv[1])
     pass
