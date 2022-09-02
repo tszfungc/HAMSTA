@@ -2,7 +2,11 @@ import argparse
 import logging
 import sys
 
-from hamsta import __version__, io
+import jax.numpy as jnp
+import numpy as np
+import pandas as pd
+
+from hamsta import __version__, io, preprocess
 
 _logger = logging.getLogger(__name__)
 
@@ -64,11 +68,10 @@ def parse_args(args):
     )
     preprocess_parser.add_argument("--global-ancestry", help="Path to rfmix.Q")
     # preprocess_parser.add_argument("--LADmat", help="Path to LAD matrix")
-    preprocess_parser.add_argument(
-        "--n-indiv", help="Number of individuals", type=float
-    )
+    preprocess_parser.add_argument("--N", help="Number of individuals", type=float)
     preprocess_parser.add_argument("--out", help="output prefix")
     preprocess_parser.add_argument("--keep", help="list of individual to keep")
+    preprocess_parser.add_argument("--k", help="Number of components to compute")
     preprocess_parser.set_defaults(func=pprocess_main)
 
     # infer parser
@@ -101,10 +104,28 @@ def parse_args(args):
 
 def pprocess_main(args):
 
+    # read global
     Q = io.read_global_ancestry(
         fname=args.global_ancestry, sample_colname="#sample", skiprows=1
     )
-    _logger.debug(Q.head())
+    # read local
+    A, A_sample = io.read_fbtsv(*args.rfmixfb)
+
+    _logger.info(A_sample)
+
+    # read keep
+    if args.keep is not None:
+        keep = pd.read_csv(args.keep, header=None)[0].values.astype(str)
+
+    # filter and reorder to local ancestry's sample order
+    keep = (A_sample[np.in1d(A_sample["sample"], keep)].merge(Q))["sample"]
+    A_sel = np.in1d(A_sample["sample"], keep)
+    A, A_sample = A[:, A_sel], A_sample[A_sel]
+
+    Q = A_sample.merge(Q)
+    Q = jnp.array(Q.iloc[:, 1:-1])
+
+    preprocess.SVD(A=A, Q=Q, k=args.k, outprefix=args.out)
 
 
 def infer_main(args):
