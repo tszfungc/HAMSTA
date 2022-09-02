@@ -95,8 +95,6 @@ def read_global_ancestry(fname: str, sample_colname: str, **pd_kwargs) -> pd.Dat
 
     """
 
-    _logger.info("testing")
-
     default_pd_kwargs = {"sep": "\t"}
     default_pd_kwargs.update(pd_kwargs)
     Q_df = pd.read_csv(fname, **default_pd_kwargs, dtype={sample_colname: str})
@@ -105,6 +103,13 @@ def read_global_ancestry(fname: str, sample_colname: str, **pd_kwargs) -> pd.Dat
     Q_df = Q_df.set_index("sample").reset_index()
 
     return Q_df
+
+
+def read_fbtsv(
+    fname: str,
+    ancestry: str,
+):
+    pass
 
 
 if __name__ == "__main__":
