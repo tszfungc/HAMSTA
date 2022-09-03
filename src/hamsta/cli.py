@@ -109,7 +109,10 @@ def pprocess_main(args):
         fname=args.global_ancestry, sample_colname="#sample", skiprows=1
     )
     # read local
-    A, A_sample = io.read_fbtsv(*args.rfmixfb)
+    if args.rfmixfb is not None:
+        A, A_sample = io.raed_rfmixfb(*args.rfmixfb)
+    elif args.zarr is not None:
+        A, A_sample = io.read_zarr(*args.zarr)
 
     _logger.info(A_sample)
 

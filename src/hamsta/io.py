@@ -4,6 +4,7 @@ from typing import Tuple
 import jax.numpy as jnp
 import numpy as np
 import pandas as pd
+import xarray as xr
 
 _logger = logging.getLogger(__name__)
 
@@ -106,12 +107,13 @@ def read_global_ancestry(fname: str, sample_colname: str, **pd_kwargs) -> pd.Dat
     return Q_df
 
 
-def read_fbtsv(
+def read_rfmixfb(
     fname: str,
     ancestry: str,
 ) -> Tuple[jnp.ndarray, pd.DataFrame]:
     """Reader for RFMIX .fb.tsv output
-    | Reading RFMIX .fb.tsv output as probability dosages
+
+    Reading RFMIX .fb.tsv output as probability dosages
 
     Args:
         fname: Path to RFMIX output
@@ -119,6 +121,27 @@ def read_fbtsv(
 
     Returns:
         a local ancestry matrix (marker, sample) and list of sample
+
+
+    Example
+    -------
+    >>> from hamsta import io
+    >>> A, A_sample = io.read_rfmixfb("tests/testdata/example.fb.tsv", "HCB")
+    >>> A[:5, :5]
+    DeviceArray([[2.   , 2.   , 2.   , 1.969, 1.   ],
+                 [2.   , 2.   , 2.   , 1.969, 1.   ],
+                 [2.   , 2.   , 2.   , 1.969, 1.   ],
+                 [2.   , 2.   , 2.   , 1.969, 1.   ],
+                 [2.   , 2.   , 2.   , 1.969, 1.   ]], dtype=float32)
+    >>> A_sample.head(5)
+       sample
+    0  HCB182
+    1  HCB190
+    2  HCB191
+    3  HCB193
+    4  HCB194
+
+
     """
 
     # Read ancestry line
@@ -153,6 +176,61 @@ def read_fbtsv(
 
     # make individual list
     sample_df = pd.DataFrame({"sample": indiv})
+
+    return LA_matrix, sample_df
+
+
+def read_zarr(
+    fname: str,
+    ancestry: str,
+) -> Tuple[jnp.ndarray, pd.DataFrame]:
+    """Reader for xarray stored in .zarr
+
+    Read a :class:`xarray.Dataset` with data ``locanc`` in
+    (marker, sample, ploidy, ancestry), example::
+
+        <xarray.Dataset>
+        Dimensions:   (marker: 8, sample: 39, ploidy: 2, ancestry: 2)
+        Coordinates:
+        * ancestry  (ancestry) <U3 'HCB' 'JPT'
+        * marker    (marker) uint32 1 6 12 20 25 31 36 43
+        * ploidy    (ploidy) int8 0 1
+        * sample    (sample) <U6 'HCB182' 'HCB190' 'HCB191' ... 'JPT266' 'JPT267'
+        Data variables:
+            locanc    (marker, sample, ploidy, ancestry) float32 1.0 0.0 1.0 ... 0.0 1.0
+
+    Args:
+        fname: Path to RFMIX output
+        ancestry: The ancestry to be extracted
+
+    Returns:
+        a local ancestry matrix (marker, sample) and list of sample
+
+    Example
+    -------
+    >>> from hamsta import io
+    >>> A, A_sample = io.read_zarr("tests/testdata/example.zarr", "HCB")
+    >>> A[:5, :5]
+    DeviceArray([[2.   , 2.   , 2.   , 1.969, 1.   ],
+                 [2.   , 2.   , 2.   , 1.969, 1.   ],
+                 [2.   , 2.   , 2.   , 1.969, 1.   ],
+                 [2.   , 2.   , 2.   , 1.969, 1.   ],
+                 [2.   , 2.   , 2.   , 1.969, 1.   ]], dtype=float32)
+    >>> A_sample.head(5)
+       sample
+    0  HCB182
+    1  HCB190
+    2  HCB191
+    3  HCB193
+    4  HCB194
+
+
+    """
+    ds = xr.open_zarr(fname)
+
+    LA_matrix = jnp.array(ds.locanc.sel(ancestry=ancestry).sum(dim="ploidy"))
+
+    sample_df = ds.sample.to_dataframe().reset_index(drop=True)
 
     return LA_matrix, sample_df
 

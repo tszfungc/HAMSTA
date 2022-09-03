@@ -4,3 +4,4 @@ tqdm
 pandas
 scikit-learn
 xarray
+zarr

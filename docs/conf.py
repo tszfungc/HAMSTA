@@ -285,6 +285,7 @@ intersphinx_mapping = {
     "setuptools": ("https://setuptools.pypa.io/en/stable/", None),
     "pyscaffold": ("https://pyscaffold.org/en/stable", None),
     "jax": ("https://jax.readthedocs.io/en/latest/", None),
+    "xarray": ("https://xarray.pydata.org/en/stable", None), 
 }
 
 print(f"loading configurations for {project} {version} ...", file=sys.stderr)
