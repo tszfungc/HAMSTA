@@ -1,0 +1,168 @@
+{
+    "metadata": {
+        ".zattrs": {},
+        ".zgroup": {
+            "zarr_format": 2
+        },
+        "ancestry/.zarray": {
+            "chunks": [
+                2
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<U3",
+            "fill_value": null,
+            "filters": null,
+            "order": "C",
+            "shape": [
+                2
+            ],
+            "zarr_format": 2
+        },
+        "ancestry/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "ancestry"
+            ]
+        },
+        "genetic_position/.zarray": {
+            "chunks": [
+                8
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<f4",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                8
+            ],
+            "zarr_format": 2
+        },
+        "genetic_position/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "marker"
+            ]
+        },
+        "locanc/.zarray": {
+            "chunks": [
+                8,
+                39,
+                2,
+                2
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<f4",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                8,
+                39,
+                2,
+                2
+            ],
+            "zarr_format": 2
+        },
+        "locanc/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "marker",
+                "sample",
+                "ploidy",
+                "ancestry"
+            ]
+        },
+        "marker/.zarray": {
+            "chunks": [
+                8
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<u4",
+            "fill_value": null,
+            "filters": null,
+            "order": "C",
+            "shape": [
+                8
+            ],
+            "zarr_format": 2
+        },
+        "marker/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "marker"
+            ]
+        },
+        "ploidy/.zarray": {
+            "chunks": [
+                2
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "|i1",
+            "fill_value": null,
+            "filters": null,
+            "order": "C",
+            "shape": [
+                2
+            ],
+            "zarr_format": 2
+        },
+        "ploidy/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "ploidy"
+            ]
+        },
+        "sample/.zarray": {
+            "chunks": [
+                39
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<U6",
+            "fill_value": null,
+            "filters": null,
+            "order": "C",
+            "shape": [
+                39
+            ],
+            "zarr_format": 2
+        },
+        "sample/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "sample"
+            ]
+        }
+    },
+    "zarr_consolidated_format": 1
+}
