@@ -34,6 +34,8 @@ I/O
 
     read_sumstat
     read_global_ancestry
+    read_rfmixfb
+    read_zarr
 
 
 

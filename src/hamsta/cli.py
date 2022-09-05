@@ -105,26 +105,39 @@ def parse_args(args):
 def pprocess_main(args):
 
     # read global
-    Q = io.read_global_ancestry(
-        fname=args.global_ancestry, sample_colname="#sample", skiprows=1
-    )
+    if args.global_ancestry is not None:
+        Q = io.read_global_ancestry(
+            fname=args.global_ancestry, sample_colname="#sample", skiprows=1
+        )
+    else:
+        Q = None
+
     # read local
-    A, A_sample = io.read_fbtsv(*args.rfmixfb)
+    if args.rfmixfb is not None:
+        A, A_sample = io.raed_rfmixfb(*args.rfmixfb)
+    elif args.zarr is not None:
+        A, A_sample = io.read_zarr(*args.zarr)
+    else:
+        raise RuntimeError("No input local ancestry")
 
     _logger.info(A_sample)
 
     # read keep
     if args.keep is not None:
         keep = pd.read_csv(args.keep, header=None)[0].values.astype(str)
+        keep = (A_sample[np.in1d(A_sample["sample"], keep)].merge(Q))["sample"]
 
-    # filter and reorder to local ancestry's sample order
-    keep = (A_sample[np.in1d(A_sample["sample"], keep)].merge(Q))["sample"]
-    A_sel = np.in1d(A_sample["sample"], keep)
-    A, A_sample = A[:, A_sel], A_sample[A_sel]
+        # filter local ancestry samples
+        A_sel = np.in1d(A_sample["sample"], keep)
+        A, A_sample = A[:, A_sel], A_sample[A_sel]
 
-    Q = A_sample.merge(Q)
+        # sort global ancestry to local ancestry's order
+        Q = A_sample.merge(Q)
+
+    # astype jnp ndarray
     Q = jnp.array(Q.iloc[:, 1:-1])
 
+    # SVD
     preprocess.SVD(A=A, Q=Q, k=args.k, outprefix=args.out)
 
 
