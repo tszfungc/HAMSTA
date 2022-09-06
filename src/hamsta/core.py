@@ -169,7 +169,7 @@ class HAMSTA:
             rotated_Z = _rotate(S=S, Z=Z, U=U)
 
         if U is not None:
-            M = M or U.shape
+            M = M or U.shape[0]
 
         param0 = jnp.array([-0.7, -0.7])
 
