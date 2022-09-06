@@ -119,7 +119,7 @@ def pprocess_main(args):
 
     # read local
     if args.rfmixfb is not None:
-        A, A_sample = io.raed_rfmixfb(*args.rfmixfb)
+        A, A_sample = io.read_rfmixfb(*args.rfmixfb)
     elif args.nc is not None:
         A, A_sample = io.read_nc(*args.zarr)
     elif args.zarr is not None:
