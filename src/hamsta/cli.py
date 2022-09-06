@@ -76,7 +76,9 @@ def parse_args(args):
     preprocess_parser.add_argument("--N", help="Number of individuals", type=float)
     preprocess_parser.add_argument("--out", help="output prefix")
     preprocess_parser.add_argument("--keep", help="list of individual to keep")
-    preprocess_parser.add_argument("--k", help="Number of components to compute")
+    preprocess_parser.add_argument(
+        "--k", help="Number of components to compute", type=int
+    )
     preprocess_parser.set_defaults(func=pprocess_main)
 
     # infer parser
