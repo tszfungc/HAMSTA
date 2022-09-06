@@ -66,6 +66,11 @@ def parse_args(args):
         nargs=2,
         help="Xarray dataset in zarr, two args require, (filepath, data_var)",
     )
+    preprocess_parser.add_argument(
+        "--nc",
+        nargs=2,
+        help="Xarray dataset in netcdf, two args require, (filepath, data_var)",
+    )
     preprocess_parser.add_argument("--global-ancestry", help="Path to rfmix.Q")
     # preprocess_parser.add_argument("--LADmat", help="Path to LAD matrix")
     preprocess_parser.add_argument("--N", help="Number of individuals", type=float)
@@ -115,6 +120,8 @@ def pprocess_main(args):
     # read local
     if args.rfmixfb is not None:
         A, A_sample = io.raed_rfmixfb(*args.rfmixfb)
+    elif args.nc is not None:
+        A, A_sample = io.read_nc(*args.zarr)
     elif args.zarr is not None:
         A, A_sample = io.read_zarr(*args.zarr)
     else:
@@ -131,8 +138,8 @@ def pprocess_main(args):
         A_sel = np.in1d(A_sample["sample"], keep)
         A, A_sample = A[:, A_sel], A_sample[A_sel]
 
-        # sort global ancestry to local ancestry's order
-        Q = A_sample.merge(Q)
+    # sort global ancestry to local ancestry's order
+    Q = A_sample.merge(Q)
 
     # astype jnp ndarray
     Q = jnp.array(Q.iloc[:, 1:-1])
