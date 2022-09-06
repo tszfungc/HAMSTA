@@ -138,13 +138,12 @@ def pprocess_main(args):
         A_sel = np.in1d(A_sample["sample"], keep)
         A, A_sample = A[:, A_sel], A_sample[A_sel]
 
-    # sort global ancestry to local ancestry's order
-    Q = A_sample.merge(Q)
-
-    assert np.all(A_sample["sample"] == Q["sample"])
-
-    # astype jnp ndarray
-    Q = jnp.array(Q.iloc[:, 1:2])
+    if Q is not None:
+        # sort global ancestry to local ancestry's order
+        Q = A_sample.merge(Q)
+        assert np.all(A_sample["sample"] == Q["sample"])
+        # astype jnp ndarray
+        Q = jnp.array(Q.iloc[:, 1:2])
 
     # SVD
     preprocess.SVD(A=A, Q=Q, k=args.k, outprefix=args.out)
