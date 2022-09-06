@@ -176,6 +176,11 @@ class HAMSTA:
         if M is None or rotated_Z is None or S is None:
             raise ValueError("Not enough arguments to start estimation")
 
+        # apply filter
+        S_filter = S > self.S_thres
+        rotated_Z = rotated_Z[S_filter]
+        S = S[S_filter]
+
         # Optimization
         # ============
         # H1 hypothesis
