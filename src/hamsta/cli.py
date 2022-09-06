@@ -121,7 +121,7 @@ def pprocess_main(args):
     if args.rfmixfb is not None:
         A, A_sample = io.read_rfmixfb(*args.rfmixfb)
     elif args.nc is not None:
-        A, A_sample = io.read_nc(*args.zarr)
+        A, A_sample = io.read_nc(*args.nc)
     elif args.zarr is not None:
         A, A_sample = io.read_zarr(*args.zarr)
     else:
@@ -141,8 +141,10 @@ def pprocess_main(args):
     # sort global ancestry to local ancestry's order
     Q = A_sample.merge(Q)
 
+    assert np.all(A_sample["sample"] == Q["sample"])
+
     # astype jnp ndarray
-    Q = jnp.array(Q.iloc[:, 1:-1])
+    Q = jnp.array(Q.iloc[:, 1:2])
 
     # SVD
     preprocess.SVD(A=A, Q=Q, k=args.k, outprefix=args.out)
