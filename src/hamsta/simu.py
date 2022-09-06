@@ -1,42 +1,124 @@
-# import sys
-#
-# import numpy as np
-# import pandas as pd
-# from scipy import stats
-#
-# from hamsta import io
+import jax.numpy as jnp
+from jax import random
 
-# # input
-# pgen = sys.argv[1]
-# psam = pgen.replace("pgen", "psam")
-# df = pd.read_csv(psam, sep="\t")
-#
-# # hsq
-# hsq = np.float64(sys.argv[2])
-# A = io.read_pgen(pgen)
-# M, N = A.shape
-# A_std = stats.zscore(A, axis=1).T
-#
-# # causal
-# n_signal = int(sys.argv[3])
-#
-#
-# # simu
-# for i in range(50):
-#     std_norm_effect = np.zeros(M)
-#     std_norm_effect[:n_signal] = np.random.normal(size=n_signal)
-#     np.random.shuffle(std_norm_effect)
-#     print(f"Number of non-zero effect: {np.sum(std_norm_effect!=0)}")
-#
-#     std_norm_err = np.random.normal(size=(N, 1))
-#
-#     cpnt_A = np.sqrt(hsq) * stats.zscore(A_std @ std_norm_effect[:, None], axis=0)
-#     cpnt_e = np.sqrt(1 - hsq) * stats.zscore(std_norm_err, axis=0)
-#     pheno = (cpnt_A + cpnt_e).flatten()
-#
-#     df[i] = pheno
-#
-# df = df.drop("SEX", axis=1)
-# print(df)
-# df.to_csv(f"hsq{hsq:.3f}_{n_signal}.pheno", index=None, sep="\t")
-#
+
+def simu_pheno(
+    A: jnp.ndarray,
+    Q: jnp.ndarray = None,
+    cov: jnp.ndarray = None,
+    pve: jnp.ndarray = jnp.array([0.0, 0.0, 0.0]),
+    rep: int = 1,
+) -> jnp.ndarray:
+    """Simulate phenotypes
+
+    Assume Q and cov are column vector for now
+
+    Args:
+        A: local ancestry matrix (marker, sample)
+        Q: global ancestry matrix (sample, 1)
+        cov: covariate matrix (sample, 1)
+        pve: phenotypic variances explained by ``A``, ``Q`` and ``cov``
+        rep: number of replicates
+    """
+
+    A = (A - A.mean(axis=1, keepdims=True)) / A.std(axis=1, keepdims=True)
+
+    if Q is not None:
+        Q = (Q - Q.mean(axis=0, keepdims=True)) / Q.std(axis=0, keepdims=True)
+        Q = jnp.repeat(Q, rep, axis=1)
+    else:
+        Q = jnp.zeros(shape=(A.shape[1], rep))
+
+    if cov is not None:
+        cov = (cov - cov.mean(axis=0, keepdims=True)) / cov.std(axis=0, keepdims=True)
+        cov = jnp.repeat(cov, rep, axis=1)
+    else:
+        cov = jnp.zeros(shape=(A.shape[1], rep))
+
+    main_key = random.PRNGKey(12)
+    subkey0, subkey1, main_key = random.split(main_key, num=3)
+
+    b = random.normal(key=subkey0, shape=(A.shape[0], rep))
+    Ab = A.T @ b
+    Ab /= Ab.std(axis=0)
+
+    e_ = random.normal(key=subkey1, shape=(A.shape[1], rep))
+
+    pve_rt = jnp.sqrt(pve)
+    pheno = Ab * pve_rt[0] + Q * pve_rt[1] + cov * pve_rt[2] + e_ * (1 - pve_rt.sum())
+
+    return pheno
+
+
+def assoc(
+    y: jnp.ndarray,
+    x: jnp.ndarray,
+    c: jnp.ndarray,
+) -> jnp.ndarray:
+    """Compute T statistics
+
+    args:
+        y: y (sample, rep)
+        x: x (sample, marker)
+        c: covariates (sample, ncov)
+
+    returns:
+        t-statistics (marker, rep)
+    """
+
+    C = jnp.hstack([c, jnp.ones(shape=(c.shape[0], 1))])
+    P = jnp.eye(C.shape[0]) - C @ jnp.linalg.solve(C.T @ C, C.T)
+
+    Y = P @ y
+    X = P @ x
+
+    # marginal beta estimates, (marker, replicates)
+    beta_hat = jnp.multiply(1 / jnp.sum(X.T ** 2, axis=1, keepdims=True), X.T @ Y)
+
+    # for each marker, compute r col vecs of fitted phenotype
+    fitted = jnp.einsum("sm,mr->msr", X, beta_hat)  # (m,s,r)
+    s2 = jnp.var(Y - fitted, axis=1, ddof=C.shape[1])  # var[(s, r) - (m,s,r)] -> (m, r)
+    se = jnp.sqrt(
+        s2 / jnp.sum(X.T ** 2, axis=1, keepdims=True)
+    )  # (m, r) / (m, 1) -> (m, r)
+
+    tstat = beta_hat / se  # (m, r) / (m, r) -> (m, r)
+
+    return tstat
+
+
+def assoc_null(
+    y: jnp.ndarray,
+    x: jnp.ndarray,
+    c: jnp.ndarray,
+) -> jnp.ndarray:
+    """Compute T statistics
+
+    args:
+        y: y (sample, rep)
+        x: x (sample, marker)
+        c: covariates (sample, ncov)
+
+    """
+
+    C = jnp.hstack([c, jnp.ones(shape=(c.shape[0], 1))])
+    P = jnp.eye(C.shape[0]) - C @ jnp.linalg.solve(C.T @ C, C.T)
+
+    Y = P @ y
+    X = P @ x
+
+    # marginal beta estimates, (marker, replicates)
+    beta_hat = jnp.multiply(1 / jnp.sum(X.T ** 2, axis=1, keepdims=True), X.T @ Y)
+
+    # for each marker, compute r col vecs of fitted phenotype
+    fitted = jnp.einsum("sm,mr->msr", X, beta_hat)  # (m,s,r)
+    s2 = jnp.ones(
+        shape=(fitted.shape[0], fitted.shape[2])
+    )  # var[(s, r) - (m,s,r)] -> (m, r)
+    se = jnp.sqrt(
+        s2 / jnp.sum(X.T ** 2, axis=1, keepdims=True)
+    )  # (m, r) / (m, 1) -> (m, r)
+
+    tstat = beta_hat / se  # (m, r) / (m, r) -> (m, r)
+
+    return tstat
