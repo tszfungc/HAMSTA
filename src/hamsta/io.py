@@ -240,7 +240,7 @@ def read_nc(
     ancestry: str,
 ) -> Tuple[jnp.ndarray, pd.DataFrame]:
 
-    ds = xr.open_dataset(fname)
+    ds = xr.open_dataset(fname).load()
 
     LA_matrix = jnp.array(ds.locanc.sel(ancestry=ancestry).sum(dim="ploidy"))
 
