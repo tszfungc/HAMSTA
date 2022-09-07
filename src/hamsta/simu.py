@@ -1,5 +1,7 @@
+from functools import partial
+
 import jax.numpy as jnp
-from jax import random
+from jax import jit, random
 
 
 def simu_pheno(
@@ -77,12 +79,46 @@ def assoc(
 
     # for each marker, compute r col vecs of fitted phenotype
     fitted = jnp.einsum("sm,mr->msr", X, beta_hat)  # (m,s,r)
-    s2 = jnp.var(Y - fitted, axis=1, ddof=C.shape[1])  # var[(s, r) - (m,s,r)] -> (m, r)
+    s2 = jnp.var(
+        Y - fitted, axis=1, ddof=C.shape[1], keepdims=True
+    )  # var[(s, r) - (m,s,r)] -> (m, r)
     se = jnp.sqrt(
         s2 / jnp.sum(X.T ** 2, axis=1, keepdims=True)
     )  # (m, r) / (m, 1) -> (m, r)
 
     tstat = beta_hat / se  # (m, r) / (m, r) -> (m, r)
+
+    return tstat
+
+
+@partial(jit, static_argnums=(3,))
+def _assoc_single(
+    Y: jnp.ndarray,
+    X: jnp.ndarray,
+    P: jnp.ndarray,
+    ddof=1,
+) -> jnp.ndarray:
+    """Compute test statistics for one marker over replicates
+
+    args:
+        Y: residualized Y (sample, rep)
+        X: Column vector of one marker (sample, 1)
+        P: Residual marker (sample, sample)
+
+    returns:
+        vector of t statistics (1, rep)
+
+    """
+    X = P @ X  # (sample, 1)
+    beta_hat = jnp.multiply(
+        1 / jnp.sum(X.T ** 2, axis=1, keepdims=True), X.T @ Y
+    )  # (1, rep)
+    fitted = X * beta_hat  # (sample, rep)
+
+    s2 = jnp.var(Y - fitted, axis=0, ddof=ddof)  # (1, rep)
+    se = jnp.sqrt(s2 / jnp.sum(X.T ** 2, axis=1, keepdims=True))  # (1, rep)
+
+    tstat = beta_hat / se
 
     return tstat
 
