@@ -5,6 +5,7 @@ import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 import scipy
+import statsmodels.api as sm
 from jax import grad, jit
 from scipy import stats
 
@@ -112,6 +113,29 @@ def minimize(
     )
 
     return results
+
+
+def compute_residvar(
+    Y: jnp.ndarray,
+    X: jnp.ndarray,
+) -> jnp.ndarray:
+    """Estimate residual variance Y | independent variables
+
+    Args:
+        Y: phenotype
+        X: independent variables
+    """
+
+    resid_var = []
+    for pheno_idx in range(Y.shape[1]):
+        fitted = sm.OLS(
+            endog=np.array(Y[:, pheno_idx]), exog=sm.add_constant(np.array(X))
+        ).fit()
+        resid_var.append(1 - fitted.rsquared)
+
+    resid_var = jnp.array(resid_var)
+
+    return resid_var
 
 
 if __name__ == "__main__":
