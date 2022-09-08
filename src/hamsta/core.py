@@ -55,10 +55,10 @@ def _pre_fit_check(**kwargs):
             raise ValueError("Unknown # markers")
 
 
-def _rotate(U: np.ndarray, S: np.ndarray, Z: np.ndarray):
+def _rotate(U: np.ndarray, S: np.ndarray, Z: np.ndarray, residual_var: float):
 
     D_sqrt = jnp.sqrt(jnp.sum(U ** 2 * S ** 2, axis=1))
-    rotated_Z = U.T @ (D_sqrt * Z)
+    rotated_Z = np.sqrt(residual_var) * U.T @ (D_sqrt * Z)
 
     return rotated_Z
 
@@ -144,6 +144,7 @@ class HAMSTA:
         S: np.ndarray = None,
         M: int = None,
         constraints: dict = {},
+        residual_var=1.0,
         jackknife=False,
     ):
         """Fit to compute likelihood and MLE
@@ -155,6 +156,7 @@ class HAMSTA:
             S: the matrix S from SVD results of A = USV'
             M: Number of markers
             constraints: constraints applied in the optimization
+            residual_var: variance of the residual in admixture mapping (default: 1)
             jackknife: If true, compute the jackknife standard error
 
 
@@ -166,7 +168,7 @@ class HAMSTA:
         # prepare arguments for optimization
         # =======
         if rotated_Z is None:
-            rotated_Z = _rotate(S=S, Z=Z, U=U)
+            rotated_Z = _rotate(S=S, Z=Z, U=U, residual_var=residual_var)
 
         if U is not None:
             M = M or U.shape[0]
