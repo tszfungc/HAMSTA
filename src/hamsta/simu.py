@@ -2,6 +2,7 @@ from functools import partial
 
 import jax.numpy as jnp
 from jax import jit, random
+import jax
 
 
 def simu_pheno(
@@ -72,26 +73,28 @@ def assoc(
     P = jnp.eye(C.shape[0]) - C @ jnp.linalg.solve(C.T @ C, C.T)
 
     Y = P @ y
-    X = P @ x
+    # X = P @ x
 
-    # marginal beta estimates, (marker, replicates)
-    beta_hat = jnp.multiply(1 / jnp.sum(X.T ** 2, axis=1, keepdims=True), X.T @ Y)
+    scan = jax.vmap(_assoc_single, in_axes=(None, 1, None, None), out_axes=0)
+    tstat = scan(Y, x, P, C.shape[1])
+    # # marginal beta estimates, (marker, replicates)
+    # beta_hat = jnp.multiply(1 / jnp.sum(X.T ** 2, axis=1, keepdims=True), X.T @ Y)
 
-    # for each marker, compute r col vecs of fitted phenotype
-    fitted = jnp.einsum("sm,mr->msr", X, beta_hat)  # (m,s,r)
-    s2 = jnp.var(
-        Y - fitted, axis=1, ddof=C.shape[1], keepdims=True
-    )  # var[(s, r) - (m,s,r)] -> (m, r)
-    se = jnp.sqrt(
-        s2 / jnp.sum(X.T ** 2, axis=1, keepdims=True)
-    )  # (m, r) / (m, 1) -> (m, r)
+    # # for each marker, compute r col vecs of fitted phenotype
+    # fitted = jnp.einsum("sm,mr->msr", X, beta_hat)  # (m,s,r)
+    # s2 = jnp.var(
+    #     Y - fitted, axis=1, ddof=C.shape[1], keepdims=True
+    # )  # var[(s, r) - (m,s,r)] -> (m, r)
+    # se = jnp.sqrt(
+    #     s2 / jnp.sum(X.T ** 2, axis=1, keepdims=True)
+    # )  # (m, r) / (m, 1) -> (m, r)
 
-    tstat = beta_hat / se  # (m, r) / (m, r) -> (m, r)
+    # tstat = beta_hat / se  # (m, r) / (m, r) -> (m, r)
 
     return tstat
 
 
-@partial(jit, static_argnums=(3,))
+@partial(jit, static_argnames=('ddof',))
 def _assoc_single(
     Y: jnp.ndarray,
     X: jnp.ndarray,
@@ -102,23 +105,23 @@ def _assoc_single(
 
     args:
         Y: residualized Y (sample, rep)
-        X: Column vector of one marker (sample, 1)
+        X: Column vector of one marker (sample, )
         P: Residual marker (sample, sample)
 
     returns:
         vector of t statistics (1, rep)
 
     """
-    X = P @ X  # (sample, 1)
+    X = P @ X  # (sample, )
     beta_hat = jnp.multiply(
-        1 / jnp.sum(X.T ** 2, axis=1, keepdims=True), X.T @ Y
-    )  # (1, rep)
-    fitted = X * beta_hat  # (sample, rep)
+        1 / jnp.sum(X.T ** 2, keepdims=True), X.T @ Y
+    )  # (rep, )
+    fitted = jnp.outer(X, beta_hat)  # (sample, rep)
 
-    s2 = jnp.var(Y - fitted, axis=0, ddof=ddof)  # (1, rep)
-    se = jnp.sqrt(s2 / jnp.sum(X.T ** 2, axis=1, keepdims=True))  # (1, rep)
+    s2 = jnp.var(Y - fitted, axis=0, ddof=ddof)  # (rep, )
+    se = jnp.sqrt(s2 / jnp.sum(X.T ** 2 , keepdims=True))  # (rep, )
 
-    tstat = beta_hat / se
+    tstat = beta_hat / se # (rep, )
 
     return tstat
 
