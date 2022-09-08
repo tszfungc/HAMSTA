@@ -47,7 +47,9 @@ def simu_pheno(
     e_ = random.normal(key=subkey1, shape=(A.shape[1], rep))
 
     pve_rt = jnp.sqrt(pve)
-    pheno = Ab * pve_rt[0] + Q * pve_rt[1] + cov * pve_rt[2] + e_ * (1 - pve_rt.sum())
+    pheno = (
+        Ab * pve_rt[0] + Q * pve_rt[1] + cov * pve_rt[2] + e_ * jnp.sqrt(1 - pve.sum())
+    )
 
     return pheno
 
