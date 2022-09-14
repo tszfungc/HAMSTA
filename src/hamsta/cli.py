@@ -66,12 +66,19 @@ def parse_args(args):
         nargs=2,
         help="Xarray dataset in zarr, two args require, (filepath, data_var)",
     )
+    preprocess_parser.add_argument(
+        "--nc",
+        nargs=2,
+        help="Xarray dataset in netcdf, two args require, (filepath, data_var)",
+    )
     preprocess_parser.add_argument("--global-ancestry", help="Path to rfmix.Q")
     # preprocess_parser.add_argument("--LADmat", help="Path to LAD matrix")
     preprocess_parser.add_argument("--N", help="Number of individuals", type=float)
     preprocess_parser.add_argument("--out", help="output prefix")
     preprocess_parser.add_argument("--keep", help="list of individual to keep")
-    preprocess_parser.add_argument("--k", help="Number of components to compute")
+    preprocess_parser.add_argument(
+        "--k", help="Number of components to compute", type=int
+    )
     preprocess_parser.set_defaults(func=pprocess_main)
 
     # infer parser
@@ -114,7 +121,9 @@ def pprocess_main(args):
 
     # read local
     if args.rfmixfb is not None:
-        A, A_sample = io.raed_rfmixfb(*args.rfmixfb)
+        A, A_sample = io.read_rfmixfb(*args.rfmixfb)
+    elif args.nc is not None:
+        A, A_sample = io.read_nc(*args.nc)
     elif args.zarr is not None:
         A, A_sample = io.read_zarr(*args.zarr)
     else:
@@ -131,14 +140,22 @@ def pprocess_main(args):
         A_sel = np.in1d(A_sample["sample"], keep)
         A, A_sample = A[:, A_sel], A_sample[A_sel]
 
+    if Q is not None:
         # sort global ancestry to local ancestry's order
         Q = A_sample.merge(Q)
-
-    # astype jnp ndarray
-    Q = jnp.array(Q.iloc[:, 1:-1])
+        assert np.all(A_sample["sample"] == Q["sample"])
+        # astype jnp ndarray
+        Q = jnp.array(Q.iloc[:, 1:2])
 
     # SVD
-    preprocess.SVD(A=A, Q=Q, k=args.k, outprefix=args.out)
+    U, S = preprocess.SVD(A=A, Q=Q, k=args.k)
+
+    if args.outprefix is not None:
+        np.save(args.outprefix + ".SVD.U.npy", U)
+        np.save(args.outprefix + ".SVD.S.npy", S)
+        # np.save(outprefix + ".SVD.SDpj.npy", SDpj)
+        _logger.info("SVD out saved to " + args.outprefix + ".SVD.*.npy")
+        _logger.info(f"output dimension: U ({U.shape}) S ({S.shape})")
 
 
 def infer_main(args):

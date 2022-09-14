@@ -235,5 +235,19 @@ def read_zarr(
     return LA_matrix, sample_df
 
 
+def read_nc(
+    fname: str,
+    ancestry: str,
+) -> Tuple[jnp.ndarray, pd.DataFrame]:
+
+    ds = xr.open_dataset(fname).load()
+
+    LA_matrix = jnp.array(ds.locanc.sel(ancestry=ancestry).sum(dim="ploidy"))
+
+    sample_df = ds.sample.to_dataframe().reset_index(drop=True)
+
+    return LA_matrix, sample_df
+
+
 if __name__ == "__main__":
     pass
