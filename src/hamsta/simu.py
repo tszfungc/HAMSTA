@@ -1,5 +1,6 @@
 from functools import partial
 
+import jax
 import jax.numpy as jnp
 from jax import jit, random
 
@@ -7,6 +8,7 @@ from jax import jit, random
 def simu_pheno(
     A: jnp.ndarray,
     Q: jnp.ndarray = None,
+    ncausal: int = None,
     cov: jnp.ndarray = None,
     pve: jnp.ndarray = jnp.array([0.0, 0.0, 0.0]),
     rep: int = 1,
@@ -18,6 +20,7 @@ def simu_pheno(
     Args:
         A: local ancestry matrix (marker, sample)
         Q: global ancestry matrix (sample, 1)
+        ncausal: number of causal markers
         cov: covariate matrix (sample, 1)
         pve: phenotypic variances explained by ``A``, ``Q`` and ``cov``
         rep: number of replicates
@@ -31,6 +34,12 @@ def simu_pheno(
     else:
         Q = jnp.zeros(shape=(A.shape[1], rep))
 
+    if ncausal is not None:
+        ncausal = min(A.shape[0], ncausal)
+    else:
+        ncausal = A.shape[0]
+    nzero = A.shape[0] - ncausal
+
     if cov is not None:
         cov = (cov - cov.mean(axis=0, keepdims=True)) / cov.std(axis=0, keepdims=True)
         cov = jnp.repeat(cov, rep, axis=1)
@@ -38,9 +47,12 @@ def simu_pheno(
         cov = jnp.zeros(shape=(A.shape[1], rep))
 
     main_key = random.PRNGKey(12)
-    subkey0, subkey1, main_key = random.split(main_key, num=3)
+    subkey0, subkey1, shuffle_key, main_key = random.split(main_key, num=4)
 
     b = random.normal(key=subkey0, shape=(A.shape[0], rep))
+    b = random.shuffle(shuffle_key, b.at[:nzero].set(0), axis=0)
+    assert jnp.all(jnp.sum(b != 0, axis=0) == ncausal)
+
     Ab = A.T @ b
     Ab /= Ab.std(axis=0)
 
@@ -74,26 +86,28 @@ def assoc(
     P = jnp.eye(C.shape[0]) - C @ jnp.linalg.solve(C.T @ C, C.T)
 
     Y = P @ y
-    X = P @ x
+    # X = P @ x
 
-    # marginal beta estimates, (marker, replicates)
-    beta_hat = jnp.multiply(1 / jnp.sum(X.T ** 2, axis=1, keepdims=True), X.T @ Y)
+    scan = jax.vmap(_assoc_single, in_axes=(None, 1, None, None), out_axes=0)
+    tstat = scan(Y, x, P, C.shape[1])
+    # # marginal beta estimates, (marker, replicates)
+    # beta_hat = jnp.multiply(1 / jnp.sum(X.T ** 2, axis=1, keepdims=True), X.T @ Y)
 
-    # for each marker, compute r col vecs of fitted phenotype
-    fitted = jnp.einsum("sm,mr->msr", X, beta_hat)  # (m,s,r)
-    s2 = jnp.var(
-        Y - fitted, axis=1, ddof=C.shape[1], keepdims=True
-    )  # var[(s, r) - (m,s,r)] -> (m, r)
-    se = jnp.sqrt(
-        s2 / jnp.sum(X.T ** 2, axis=1, keepdims=True)
-    )  # (m, r) / (m, 1) -> (m, r)
+    # # for each marker, compute r col vecs of fitted phenotype
+    # fitted = jnp.einsum("sm,mr->msr", X, beta_hat)  # (m,s,r)
+    # s2 = jnp.var(
+    #     Y - fitted, axis=1, ddof=C.shape[1], keepdims=True
+    # )  # var[(s, r) - (m,s,r)] -> (m, r)
+    # se = jnp.sqrt(
+    #     s2 / jnp.sum(X.T ** 2, axis=1, keepdims=True)
+    # )  # (m, r) / (m, 1) -> (m, r)
 
-    tstat = beta_hat / se  # (m, r) / (m, r) -> (m, r)
+    # tstat = beta_hat / se  # (m, r) / (m, r) -> (m, r)
 
     return tstat
 
 
-@partial(jit, static_argnums=(3,))
+@partial(jit, static_argnames=("ddof",))
 def _assoc_single(
     Y: jnp.ndarray,
     X: jnp.ndarray,
@@ -104,23 +118,21 @@ def _assoc_single(
 
     args:
         Y: residualized Y (sample, rep)
-        X: Column vector of one marker (sample, 1)
+        X: Column vector of one marker (sample, )
         P: Residual marker (sample, sample)
 
     returns:
         vector of t statistics (1, rep)
 
     """
-    X = P @ X  # (sample, 1)
-    beta_hat = jnp.multiply(
-        1 / jnp.sum(X.T ** 2, axis=1, keepdims=True), X.T @ Y
-    )  # (1, rep)
-    fitted = X * beta_hat  # (sample, rep)
+    X = P @ X  # (sample, )
+    beta_hat = jnp.multiply(1 / jnp.sum(X.T ** 2, keepdims=True), X.T @ Y)  # (rep, )
+    fitted = jnp.outer(X, beta_hat)  # (sample, rep)
 
-    s2 = jnp.var(Y - fitted, axis=0, ddof=ddof)  # (1, rep)
-    se = jnp.sqrt(s2 / jnp.sum(X.T ** 2, axis=1, keepdims=True))  # (1, rep)
+    s2 = jnp.var(Y - fitted, axis=0, ddof=ddof)  # (rep, )
+    se = jnp.sqrt(s2 / jnp.sum(X.T ** 2, keepdims=True))  # (rep, )
 
-    tstat = beta_hat / se
+    tstat = beta_hat / se  # (rep, )
 
     return tstat
 
