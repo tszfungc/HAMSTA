@@ -1,13 +1,14 @@
 from functools import partial
 
+import jax
 import jax.numpy as jnp
 from jax import jit, random
-import jax
 
 
 def simu_pheno(
     A: jnp.ndarray,
     Q: jnp.ndarray = None,
+    ncausal: int = None,
     cov: jnp.ndarray = None,
     pve: jnp.ndarray = jnp.array([0.0, 0.0, 0.0]),
     rep: int = 1,
@@ -19,6 +20,7 @@ def simu_pheno(
     Args:
         A: local ancestry matrix (marker, sample)
         Q: global ancestry matrix (sample, 1)
+        ncausal: number of causal markers
         cov: covariate matrix (sample, 1)
         pve: phenotypic variances explained by ``A``, ``Q`` and ``cov``
         rep: number of replicates
@@ -32,6 +34,12 @@ def simu_pheno(
     else:
         Q = jnp.zeros(shape=(A.shape[1], rep))
 
+    if ncausal is not None:
+        ncausal = min(A.shape[0], ncausal)
+    else:
+        ncausal = A.shape[0]
+    nzero = A.shape[0] - ncausal
+
     if cov is not None:
         cov = (cov - cov.mean(axis=0, keepdims=True)) / cov.std(axis=0, keepdims=True)
         cov = jnp.repeat(cov, rep, axis=1)
@@ -39,9 +47,12 @@ def simu_pheno(
         cov = jnp.zeros(shape=(A.shape[1], rep))
 
     main_key = random.PRNGKey(12)
-    subkey0, subkey1, main_key = random.split(main_key, num=3)
+    subkey0, subkey1, shuffle_key, main_key = random.split(main_key, num=4)
 
     b = random.normal(key=subkey0, shape=(A.shape[0], rep))
+    b = random.shuffle(shuffle_key, b.at[:nzero].set(0), axis=0)
+    assert jnp.all(jnp.sum(b != 0, axis=0) == ncausal)
+
     Ab = A.T @ b
     Ab /= Ab.std(axis=0)
 
@@ -96,7 +107,7 @@ def assoc(
     return tstat
 
 
-@partial(jit, static_argnames=('ddof',))
+@partial(jit, static_argnames=("ddof",))
 def _assoc_single(
     Y: jnp.ndarray,
     X: jnp.ndarray,
@@ -115,15 +126,13 @@ def _assoc_single(
 
     """
     X = P @ X  # (sample, )
-    beta_hat = jnp.multiply(
-        1 / jnp.sum(X.T ** 2, keepdims=True), X.T @ Y
-    )  # (rep, )
+    beta_hat = jnp.multiply(1 / jnp.sum(X.T ** 2, keepdims=True), X.T @ Y)  # (rep, )
     fitted = jnp.outer(X, beta_hat)  # (sample, rep)
 
     s2 = jnp.var(Y - fitted, axis=0, ddof=ddof)  # (rep, )
-    se = jnp.sqrt(s2 / jnp.sum(X.T ** 2 , keepdims=True))  # (rep, )
+    se = jnp.sqrt(s2 / jnp.sum(X.T ** 2, keepdims=True))  # (rep, )
 
-    tstat = beta_hat / se # (rep, )
+    tstat = beta_hat / se  # (rep, )
 
     return tstat
 
