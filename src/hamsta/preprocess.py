@@ -2,7 +2,6 @@ import logging
 from typing import Tuple
 
 import jax.numpy as jnp
-import numpy as np
 from sklearn.utils.extmath import randomized_svd
 
 _logger = logging.getLogger(__name__)
@@ -12,7 +11,6 @@ def SVD(
     A: jnp.ndarray,
     Q: jnp.ndarray = None,
     k: int = None,
-    outprefix: str = None,
 ) -> Tuple[jnp.ndarray, jnp.ndarray]:
     """SVD, with covariate and output options.
 
@@ -26,10 +24,6 @@ def SVD(
             global ancestry or covariates to be projected (sample, n_covariate)
         k:
             number of components computed in truncated
-        outprefix:
-            outprefix for writing SVD results.
-            When set, write to ``{outprefix}.SVD.U.npy`` and ``{outprefix}.SVD.S.npy``
-
 
     Returns:
         ``(U, S)`` in SVD of ``X = U * S @ Vh``
@@ -59,12 +53,5 @@ def SVD(
         U, S, _ = randomized_svd(A_std, n_components=k, random_state=None)
 
     # Write
-
-    if outprefix is not None:
-        np.save(outprefix + ".SVD.U.npy", U)
-        np.save(outprefix + ".SVD.S.npy", S)
-        # np.save(outprefix + ".SVD.SDpj.npy", SDpj)
-        _logger.info("SVD out saved to " + outprefix + ".SVD.*.npy")
-        _logger.info(f"output dimension: U ({U.shape}) S ({S.shape})")
 
     return U, S
