@@ -194,7 +194,7 @@ class HAMSTA:
         parameter = np.exp(est_res.x)
         h1 = -est_res.fun
 
-        # H0 hypothesis
+        # H0_h2a hypothesis
         # -------------
         constraints0 = constraints.copy()
         constraints0.update({"h2a": 0.0})
@@ -204,14 +204,28 @@ class HAMSTA:
         est_res = _minimize(obj_fun0, x0=param0, method="trust-ncg")
         h0 = -est_res.fun
 
+        # H0_intercept hypothesis
+        # -------------
+        constraints_intercept = constraints.copy()
+        constraints_intercept.update({"intercept": 1.0})
+        obj_fun0_intercept: Callable = partial(
+            _negloglik, rotated_Z=rotated_Z, S=S, M=M, constraints=constraints_intercept
+        )
+        est_res = _minimize(obj_fun0_intercept, x0=param0, method="trust-ncg")
+        h0_intercept = -est_res.fun
+
         # store results
         # =====
         self.result.update(
             {
                 "parameter": parameter,
                 "h0": h0,
+                "h0_intercept": h0_intercept,
                 "h1": h1,
-                "p": _lrt(h0, h1, len(constraints0) - len(constraints))["p"],
+                "p_h2a": _lrt(h0, h1, len(constraints0) - len(constraints))["p"],
+                "p_intercept": _lrt(
+                    h0_intercept, h1, len(constraints_intercept) - len(constraints)
+                )["p"],
             }
         )
 
