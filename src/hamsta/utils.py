@@ -138,6 +138,24 @@ def compute_residvar(
     return resid_var
 
 
+def estimate_thres(
+    U: jnp.ndarray,
+    S: jnp.ndarray,
+    var: float = 1.0,
+    nrep: int = 2000,
+    fwer: float = 0.05,
+):
+    S_scale = np.random.normal(size=(nrep, S.shape[0])) * S
+
+    D = np.sqrt(np.sum((U * S) ** 2, axis=1))
+
+    Z = np.einsum("i, ij,kj->ki", 1 / D, U, S_scale)
+
+    maxchi2 = np.max(Z ** 2, axis=1)
+    cutoff = np.percentile(maxchi2, 100 * (1 - fwer))
+    return cutoff
+
+
 if __name__ == "__main__":
     # CLI for debug only
     pass
