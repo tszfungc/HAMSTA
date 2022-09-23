@@ -90,11 +90,15 @@ def _negloglik(
 
     param = jnp.exp(jnp.array(param))
     param_ = {}
-    param_.update({"h2a": param[0], "intercept": param[1]})
+    param_.update({"h2a": param[0], "intercept": param[1:]})
     param_.update(constraints)
 
-    nongenetics = jnp.ones(rotated_Z.shape[0]) * param_["intercept"]
-    scale = jnp.sqrt(param_["h2a"] / M * (S ** 2) + nongenetics)
+    genetics = param_["h2a"] / M * (S ** 2)
+    nongenetics = jnp.linspace(0.5, 1.5, param_["intercept"].shape[0] + 2)[1:-1]
+    total_var = genetics + (nongenetics @ param_["intercept"])
+    scale = jnp.sqrt(total_var)
+    # nongenetics = jnp.ones(rotated_Z.shape[0]) * param_["intercept"]
+    # scale = jnp.sqrt(param_["h2a"] / M * (S ** 2) + nongenetics)
 
     neglogp = -jax.scipy.stats.norm.logpdf(rotated_Z / S, loc=0.0, scale=scale)
     negloglik_ = jnp.sum(neglogp)
@@ -173,7 +177,7 @@ class HAMSTA:
         if U is not None:
             M = M or U.shape[0]
 
-        param0 = jnp.array([-0.7, -0.7])
+        param0 = jnp.repeat(-0.7, 1 + 21)
 
         if M is None or rotated_Z is None or S is None:
             raise ValueError("Not enough arguments to start estimation")
@@ -192,6 +196,9 @@ class HAMSTA:
         )
         est_res = _minimize(obj_fun, x0=param0, method="trust-ncg")
         parameter = np.exp(est_res.x)
+        mean_intercept = (
+            jnp.linspace(0.5, 1.5, parameter.shape[0] + 1)[1:-1] @ parameter[1:]
+        )
         h1 = -est_res.fun
 
         # H0_h2a hypothesis
@@ -207,7 +214,7 @@ class HAMSTA:
         # H0_intercept hypothesis
         # -------------
         constraints_intercept = constraints.copy()
-        constraints_intercept.update({"intercept": 1.0})
+        constraints_intercept.update({"intercept": jnp.array([1.0])})
         obj_fun0_intercept: Callable = partial(
             _negloglik, rotated_Z=rotated_Z, S=S, M=M, constraints=constraints_intercept
         )
@@ -219,6 +226,7 @@ class HAMSTA:
         self.result.update(
             {
                 "parameter": parameter,
+                "mean_intercept": mean_intercept,
                 "h0": h0,
                 "h0_intercept": h0_intercept,
                 "h1": h1,
