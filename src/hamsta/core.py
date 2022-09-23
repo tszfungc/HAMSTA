@@ -79,6 +79,7 @@ def _negloglik(
     S: np.ndarray,
     M: int,
     constraints: dict,
+    intercept_design: jnp.ndarray,
 ) -> float:
     """Compute negative log likelihood
 
@@ -94,9 +95,11 @@ def _negloglik(
     param_.update(constraints)
 
     genetics = param_["h2a"] / M * (S ** 2)
-    nongenetics = jnp.linspace(0.5, 1.5, param_["intercept"].shape[0] + 2)[1:-1]
-    total_var = genetics + (nongenetics @ param_["intercept"])
+    nongenetics = intercept_design @ param_["intercept"]
+    total_var = genetics + nongenetics
     scale = jnp.sqrt(total_var)
+    # nongenetics = jnp.linspace(0.5, 1.5, param_["intercept"].shape[0] + 2)[1:-1]
+    # total_var = genetics + (nongenetics @ param_["intercept"])
     # nongenetics = jnp.ones(rotated_Z.shape[0]) * param_["intercept"]
     # scale = jnp.sqrt(param_["h2a"] / M * (S ** 2) + nongenetics)
 
@@ -115,10 +118,13 @@ class HAMSTA:
 
     """
 
-    def __init__(self, k: int = None, S_thres: float = 1e-3, **kwargs):
+    def __init__(
+        self, k: int = None, S_thres: float = 1e-3, intercept_blksize=500, **kwargs
+    ):
         self.k = k
         self.S_thres = S_thres
         self.result: Dict[str, Any] = {}
+        self.intercept_blksize = intercept_blksize
 
     def to_dict(self):
         """Summarize estimation result in dict"""
@@ -177,8 +183,6 @@ class HAMSTA:
         if U is not None:
             M = M or U.shape[0]
 
-        param0 = jnp.repeat(-0.7, 1 + 21)
-
         if M is None or rotated_Z is None or S is None:
             raise ValueError("Not enough arguments to start estimation")
 
@@ -187,18 +191,32 @@ class HAMSTA:
         rotated_Z = rotated_Z[S_filter]
         S = S[S_filter]
 
+        # group intercept into multiple var components
+        bin_idx = np.arange(S.shape[0]) // self.intercept_blksize
+        # group the last incomplete to the previous bin
+        if S.shape[0] % self.intercept_blksize != 0:
+            bin_idx[bin_idx == max(bin_idx)] -= 1
+        intercept_design = pd.get_dummies(bin_idx).values
+        intercept_design = jnp.array(intercept_design)
+
         # Optimization
         # ============
+        # Initial values
+        # --------------
+        param0 = jnp.repeat(-0.7, 1 + intercept_design.shape[1])
         # H1 hypothesis
         # -------------
         obj_fun: Callable = partial(
-            _negloglik, rotated_Z=rotated_Z, S=S, M=M, constraints=constraints
+            _negloglik,
+            rotated_Z=rotated_Z,
+            S=S,
+            M=M,
+            constraints=constraints,
+            intercept_design=intercept_design,
         )
         est_res = _minimize(obj_fun, x0=param0, method="trust-ncg")
         parameter = np.exp(est_res.x)
-        mean_intercept = (
-            jnp.linspace(0.5, 1.5, parameter.shape[0] + 1)[1:-1] @ parameter[1:]
-        )
+        mean_intercept = jnp.mean(parameter[1:])
         h1 = -est_res.fun
 
         # H0_h2a hypothesis
@@ -206,17 +224,28 @@ class HAMSTA:
         constraints0 = constraints.copy()
         constraints0.update({"h2a": 0.0})
         obj_fun0: Callable = partial(
-            _negloglik, rotated_Z=rotated_Z, S=S, M=M, constraints=constraints0
+            _negloglik,
+            rotated_Z=rotated_Z,
+            S=S,
+            M=M,
+            constraints=constraints0,
+            intercept_design=intercept_design,
         )
         est_res = _minimize(obj_fun0, x0=param0, method="trust-ncg")
         h0 = -est_res.fun
 
         # H0_intercept hypothesis
         # -------------
+        intercept_design_null = jnp.ones((S.shape[0], 1))
         constraints_intercept = constraints.copy()
         constraints_intercept.update({"intercept": jnp.array([1.0])})
         obj_fun0_intercept: Callable = partial(
-            _negloglik, rotated_Z=rotated_Z, S=S, M=M, constraints=constraints_intercept
+            _negloglik,
+            rotated_Z=rotated_Z,
+            S=S,
+            M=M,
+            constraints=constraints_intercept,
+            intercept_design=intercept_design_null,
         )
         est_res = _minimize(obj_fun0_intercept, x0=param0, method="trust-ncg")
         h0_intercept = -est_res.fun
