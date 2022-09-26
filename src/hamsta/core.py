@@ -1,12 +1,12 @@
 from functools import partial
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Union
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 import scipy
-from jax import grad, jit
+from jax import grad, jit, random
 from scipy import stats
 
 
@@ -154,8 +154,9 @@ class HAMSTA:
         S: np.ndarray = None,
         M: int = None,
         constraints: dict = {},
-        residual_var=1.0,
-        jackknife=False,
+        residual_var: float = 1.0,
+        jackknife: bool = False,
+        est_thres: Union[bool, float] = False,
     ):
         """Fit to compute likelihood and MLE
 
@@ -168,6 +169,12 @@ class HAMSTA:
             constraints: constraints applied in the optimization
             residual_var: variance of the residual in admixture mapping (default: 1)
             jackknife: If true, compute the jackknife standard error
+            est_thres:
+                If float, estimate significant threshold
+                at family-wise error rate equal the float value.
+                If true, assume FWER=0.05.
+                If false, skip significant threshold estimation.
+
 
 
         """
@@ -217,6 +224,7 @@ class HAMSTA:
         est_res = _minimize(obj_fun, x0=param0, method="trust-ncg")
         parameter = np.exp(est_res.x)
         mean_intercept = jnp.mean(parameter[1:])
+        intercepts = intercept_design @ parameter[1:]
         h1 = -est_res.fun
 
         # H0_h2a hypothesis
@@ -260,9 +268,9 @@ class HAMSTA:
                 "h0_intercept": h0_intercept,
                 "h1": h1,
                 "p_h2a": _lrt(h0, h1, len(constraints0) - len(constraints))["p"],
-                "p_intercept": _lrt(
-                    h0_intercept, h1, len(constraints_intercept) - len(constraints)
-                )["p"],
+                "p_intercept": _lrt(h0_intercept, h1, intercept_design.shape[1] - 1)[
+                    "p"
+                ],
             }
         )
 
@@ -277,6 +285,21 @@ class HAMSTA:
                 constraints=constraints,
             )
             self.result.update({"SE": se})
+
+        # Estimate sign threshold
+        # =======================
+        thres = np.nan
+        if isinstance(est_thres, bool) and U is not None:
+            if est_thres is True:
+                thres = self.compute_thres(
+                    fwer=0.05, U=U, S=S, intercept=intercepts, resid_var=residual_var
+                )
+        elif isinstance(est_thres, float) and U is not None:
+            thres = self.compute_thres(
+                fwer=0.05, U=U, S=S, intercept=intercepts, resid_var=residual_var
+            )
+
+        self.result.update({"thres": thres})
 
         return self
 
@@ -318,3 +341,39 @@ class HAMSTA:
         jk_se = np.sqrt(1 / num_blocks * np.var(pseudo_vals, ddof=1, axis=0))
 
         return jk_se
+
+    def compute_thres(
+        self,
+        fwer: float,
+        U: jnp.ndarray,
+        S: jnp.ndarray,
+        intercept: jnp.ndarray,
+        resid_var: float = 1.0,
+        rep: int = 2000,
+    ) -> float:
+        """Compute significant threshold at given family-wise error rate
+
+        Args:
+            fwer: family-wise error rate.
+
+        Returns:
+            Significance threshold
+
+        """
+
+        main_key = random.PRNGKey(123)
+        main_key, sub_key = random.split(main_key)
+
+        normal_seed = random.normal(key=sub_key, shape=(rep, S.shape[0])) * jnp.sqrt(
+            intercept
+        )
+        Drt = 1 / jnp.sqrt(jnp.sum((U * S) ** 2, axis=1))
+        simu_Z = (
+            Drt * jnp.einsum("ij,j,kj -> ki", U, S, normal_seed) / jnp.sqrt(resid_var)
+        )
+
+        thres = jnp.percentile(jnp.max(simu_Z ** 2, axis=1), 100 * (1 - fwer))
+
+        thres_p = 1 - stats.chi2.cdf(thres, df=1)
+
+        return thres_p
