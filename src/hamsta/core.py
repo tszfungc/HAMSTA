@@ -197,6 +197,7 @@ class HAMSTA:
         S_filter = S > self.S_thres
         rotated_Z = rotated_Z[S_filter]
         S = S[S_filter]
+        U = U[:, S_filter]
 
         # group intercept into multiple var components
         bin_idx = np.arange(S.shape[0]) // self.intercept_blksize
