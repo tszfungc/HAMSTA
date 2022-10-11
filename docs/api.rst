@@ -20,6 +20,7 @@ Functions
     :toctree: generated
 
     HAMSTA.fit
+    HAMSTA.compute_thres
     HAMSTA.to_dict
     HAMSTA.to_dataframe
 

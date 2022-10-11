@@ -1,12 +1,12 @@
 from functools import partial
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Union
 
 import jax
 import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 import scipy
-from jax import grad, jit
+from jax import grad, jit, random
 from scipy import stats
 
 
@@ -79,6 +79,7 @@ def _negloglik(
     S: np.ndarray,
     M: int,
     constraints: dict,
+    intercept_design: jnp.ndarray,
 ) -> float:
     """Compute negative log likelihood
 
@@ -90,11 +91,17 @@ def _negloglik(
 
     param = jnp.exp(jnp.array(param))
     param_ = {}
-    param_.update({"h2a": param[0], "intercept": param[1]})
+    param_.update({"h2a": param[0], "intercept": param[1:]})
     param_.update(constraints)
 
-    nongenetics = jnp.ones(rotated_Z.shape[0]) * param_["intercept"]
-    scale = jnp.sqrt(param_["h2a"] / M * (S ** 2) + nongenetics)
+    genetics = param_["h2a"] / M * (S ** 2)
+    nongenetics = intercept_design @ param_["intercept"]
+    total_var = genetics + nongenetics
+    scale = jnp.sqrt(total_var)
+    # nongenetics = jnp.linspace(0.5, 1.5, param_["intercept"].shape[0] + 2)[1:-1]
+    # total_var = genetics + (nongenetics @ param_["intercept"])
+    # nongenetics = jnp.ones(rotated_Z.shape[0]) * param_["intercept"]
+    # scale = jnp.sqrt(param_["h2a"] / M * (S ** 2) + nongenetics)
 
     neglogp = -jax.scipy.stats.norm.logpdf(rotated_Z / S, loc=0.0, scale=scale)
     negloglik_ = jnp.sum(neglogp)
@@ -111,10 +118,13 @@ class HAMSTA:
 
     """
 
-    def __init__(self, k: int = None, S_thres: float = 1e-3, **kwargs):
+    def __init__(
+        self, k: int = None, S_thres: float = 1e-3, intercept_blksize=500, **kwargs
+    ):
         self.k = k
         self.S_thres = S_thres
         self.result: Dict[str, Any] = {}
+        self.intercept_blksize = intercept_blksize
 
     def to_dict(self):
         """Summarize estimation result in dict"""
@@ -144,8 +154,9 @@ class HAMSTA:
         S: np.ndarray = None,
         M: int = None,
         constraints: dict = {},
-        residual_var=1.0,
-        jackknife=False,
+        residual_var: float = 1.0,
+        jackknife: bool = False,
+        est_thres: Union[bool, float] = False,
     ):
         """Fit to compute likelihood and MLE
 
@@ -158,6 +169,12 @@ class HAMSTA:
             constraints: constraints applied in the optimization
             residual_var: variance of the residual in admixture mapping (default: 1)
             jackknife: If true, compute the jackknife standard error
+            est_thres:
+                If float, estimate significant threshold
+                at family-wise error rate equal the float value.
+                If true, assume FWER=0.05.
+                If false, skip significant threshold estimation.
+
 
 
         """
@@ -173,8 +190,6 @@ class HAMSTA:
         if U is not None:
             M = M or U.shape[0]
 
-        param0 = jnp.array([-0.7, -0.7])
-
         if M is None or rotated_Z is None or S is None:
             raise ValueError("Not enough arguments to start estimation")
 
@@ -182,36 +197,81 @@ class HAMSTA:
         S_filter = S > self.S_thres
         rotated_Z = rotated_Z[S_filter]
         S = S[S_filter]
+        U = U[:, S_filter]
+
+        # group intercept into multiple var components
+        bin_idx = np.arange(S.shape[0]) // self.intercept_blksize
+        # group the last incomplete to the previous bin
+        if S.shape[0] % self.intercept_blksize != 0:
+            bin_idx[bin_idx == max(bin_idx)] -= 1
+        intercept_design = pd.get_dummies(bin_idx).values
+        intercept_design = jnp.array(intercept_design)
 
         # Optimization
         # ============
+        # Initial values
+        # --------------
+        param0 = jnp.repeat(-0.7, 1 + intercept_design.shape[1])
         # H1 hypothesis
         # -------------
         obj_fun: Callable = partial(
-            _negloglik, rotated_Z=rotated_Z, S=S, M=M, constraints=constraints
+            _negloglik,
+            rotated_Z=rotated_Z,
+            S=S,
+            M=M,
+            constraints=constraints,
+            intercept_design=intercept_design,
         )
         est_res = _minimize(obj_fun, x0=param0, method="trust-ncg")
         parameter = np.exp(est_res.x)
+        mean_intercept = jnp.mean(parameter[1:])
+        intercepts = intercept_design @ parameter[1:]
         h1 = -est_res.fun
 
-        # H0 hypothesis
+        # H0_h2a hypothesis
         # -------------
         constraints0 = constraints.copy()
         constraints0.update({"h2a": 0.0})
         obj_fun0: Callable = partial(
-            _negloglik, rotated_Z=rotated_Z, S=S, M=M, constraints=constraints0
+            _negloglik,
+            rotated_Z=rotated_Z,
+            S=S,
+            M=M,
+            constraints=constraints0,
+            intercept_design=intercept_design,
         )
         est_res = _minimize(obj_fun0, x0=param0, method="trust-ncg")
         h0 = -est_res.fun
+
+        # H0_intercept hypothesis
+        # -------------
+        intercept_design_null = jnp.ones((S.shape[0], 1))
+        constraints_intercept = constraints.copy()
+        constraints_intercept.update({"intercept": jnp.array([1.0])})
+        obj_fun0_intercept: Callable = partial(
+            _negloglik,
+            rotated_Z=rotated_Z,
+            S=S,
+            M=M,
+            constraints=constraints_intercept,
+            intercept_design=intercept_design_null,
+        )
+        est_res = _minimize(obj_fun0_intercept, x0=param0, method="trust-ncg")
+        h0_intercept = -est_res.fun
 
         # store results
         # =====
         self.result.update(
             {
                 "parameter": parameter,
+                "mean_intercept": mean_intercept,
                 "h0": h0,
+                "h0_intercept": h0_intercept,
                 "h1": h1,
-                "p": _lrt(h0, h1, len(constraints0) - len(constraints))["p"],
+                "p_h2a": _lrt(h0, h1, len(constraints0) - len(constraints))["p"],
+                "p_intercept": _lrt(h0_intercept, h1, intercept_design.shape[1] - 1)[
+                    "p"
+                ],
             }
         )
 
@@ -226,6 +286,21 @@ class HAMSTA:
                 constraints=constraints,
             )
             self.result.update({"SE": se})
+
+        # Estimate sign threshold
+        # =======================
+        thres = np.nan
+        if isinstance(est_thres, bool) and U is not None:
+            if est_thres is True:
+                thres = self.compute_thres(
+                    fwer=0.05, U=U, S=S, intercept=intercepts, resid_var=residual_var
+                )
+        elif isinstance(est_thres, float) and U is not None:
+            thres = self.compute_thres(
+                fwer=0.05, U=U, S=S, intercept=intercepts, resid_var=residual_var
+            )
+
+        self.result.update({"thres": thres})
 
         return self
 
@@ -267,3 +342,39 @@ class HAMSTA:
         jk_se = np.sqrt(1 / num_blocks * np.var(pseudo_vals, ddof=1, axis=0))
 
         return jk_se
+
+    def compute_thres(
+        self,
+        fwer: float,
+        U: jnp.ndarray,
+        S: jnp.ndarray,
+        intercept: jnp.ndarray,
+        resid_var: float = 1.0,
+        rep: int = 2000,
+    ) -> float:
+        """Compute significant threshold at given family-wise error rate
+
+        Args:
+            fwer: family-wise error rate.
+
+        Returns:
+            Significance threshold
+
+        """
+
+        main_key = random.PRNGKey(123)
+        main_key, sub_key = random.split(main_key)
+
+        normal_seed = random.normal(key=sub_key, shape=(rep, S.shape[0])) * jnp.sqrt(
+            intercept
+        )
+        Drt = 1 / jnp.sqrt(jnp.sum((U * S) ** 2, axis=1))
+        simu_Z = (
+            Drt * jnp.einsum("ij,j,kj -> ki", U, S, normal_seed) / jnp.sqrt(resid_var)
+        )
+
+        thres = jnp.percentile(jnp.max(simu_Z ** 2, axis=1), 100 * (1 - fwer))
+
+        thres_p = 1 - stats.chi2.cdf(thres, df=1)
+
+        return thres_p
