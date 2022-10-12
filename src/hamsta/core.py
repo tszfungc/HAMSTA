@@ -55,7 +55,7 @@ def _pre_fit_check(**kwargs):
             raise ValueError("Unknown # markers")
 
 
-def _rotate(U: np.ndarray, S: np.ndarray, Z: np.ndarray, residual_var: float):
+def rotate(U: np.ndarray, S: np.ndarray, Z: np.ndarray, residual_var: float):
 
     D_sqrt = jnp.sqrt(jnp.sum(U ** 2 * S ** 2, axis=1))
     rotated_Z = np.sqrt(residual_var) * U.T @ (D_sqrt * Z)
@@ -148,10 +148,11 @@ class HAMSTA:
     # Estimation
     def fit(
         self,
+        S: np.ndarray,
+        intercept_design: jnp.ndarray,
         Z: np.ndarray = None,
         rotated_Z: np.ndarray = None,
         U: np.ndarray = None,
-        S: np.ndarray = None,
         M: int = None,
         constraints: dict = {},
         residual_var: float = 1.0,
@@ -184,28 +185,29 @@ class HAMSTA:
 
         # prepare arguments for optimization
         # =======
+        S_filter = S > self.S_thres
+        S = S[S_filter]
         if rotated_Z is None:
-            rotated_Z = _rotate(S=S, Z=Z, U=U, residual_var=residual_var)
+            rotated_Z = rotate(S=S, Z=Z, U=U, residual_var=residual_var)
 
         if U is not None:
             M = M or U.shape[0]
+            U = U[:, S_filter]
 
         if M is None or rotated_Z is None or S is None:
             raise ValueError("Not enough arguments to start estimation")
 
         # apply filter
-        S_filter = S > self.S_thres
         rotated_Z = rotated_Z[S_filter]
-        S = S[S_filter]
-        U = U[:, S_filter]
+        intercept_design = intercept_design[S_filter, :]
 
         # group intercept into multiple var components
-        bin_idx = np.arange(S.shape[0]) // self.intercept_blksize
+        # bin_idx = np.arange(S.shape[0]) // self.intercept_blksize
         # group the last incomplete to the previous bin
-        if S.shape[0] % self.intercept_blksize != 0:
-            bin_idx[bin_idx == max(bin_idx)] -= 1
-        intercept_design = pd.get_dummies(bin_idx).values
-        intercept_design = jnp.array(intercept_design)
+        # if S.shape[0] % self.intercept_blksize != 0:
+        #     bin_idx[bin_idx == max(bin_idx)] -= 1
+        # intercept_design = pd.get_dummies(bin_idx).values
+        # intercept_design = jnp.array(intercept_design)
 
         # Optimization
         # ============
@@ -282,6 +284,7 @@ class HAMSTA:
                 param_full=parameter,
                 rotated_Z=rotated_Z,
                 S=S,
+                intercept_design=intercept_design,
                 M=M,
                 constraints=constraints,
             )
@@ -309,6 +312,7 @@ class HAMSTA:
         param_full,
         rotated_Z: np.ndarray,
         S: np.ndarray,
+        intercept_design: np.ndarray,
         M: int,
         constraints: dict = {},
         num_blocks=10,
@@ -331,6 +335,7 @@ class HAMSTA:
                 M=M,
                 S=S[selected_index],
                 jackknife=False,
+                intercept_design=intercept_design[selected_index],
             )
             pseudo_val = (
                 num_blocks * param_full
