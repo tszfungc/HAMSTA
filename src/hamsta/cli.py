@@ -210,13 +210,19 @@ def infer_main(args):
     ham.fit(rotated_Z=Z_, S=S_, M=M, jackknife=True, intercept_design=intercept_design)
 
     if ham.result["p_intercept"] < 0.05:
-        max_var = np.max(ham.result["parameter"][1:])
-        intercepts = np.repeat(max_var, S.shape[0])
+        thres_var = np.max(ham.result["parameter"][1:])
     else:
-        intercepts = np.repeat(ham.result["mean_intercept"], S.shape[0])
+        thres_var = ham.result["mean_intercept"]
 
-    thres = ham.compute_thres(fwer=0.05, U=U, S=S, intercept=intercepts)
+    burden_list = []
+    for svd_line in open(args.svd_chr, "r"):
+        U_f, S_f = svd_line.strip().split("\t")
+        U, S = np.load(U_f), np.load(S_f)
+        intercept = np.repeat(thres_var, S.shape[0])
+        thres = ham.compute_thres(fwer=0.05, U=U, S=S, intercept=intercept)
+        burden_list.append(0.05 / thres)
 
+    thres = 0.05 / sum(burden_list)
     res = ham.to_dataframe()
     res.update({"thres": [thres]})
 
