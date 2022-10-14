@@ -55,7 +55,7 @@ def _pre_fit_check(**kwargs):
             raise ValueError("Unknown # markers")
 
 
-def _rotate(U: np.ndarray, S: np.ndarray, Z: np.ndarray, residual_var: float):
+def rotate(U: np.ndarray, S: np.ndarray, Z: np.ndarray, residual_var: float):
 
     D_sqrt = jnp.sqrt(jnp.sum(U ** 2 * S ** 2, axis=1))
     rotated_Z = np.sqrt(residual_var) * U.T @ (D_sqrt * Z)
@@ -148,10 +148,11 @@ class HAMSTA:
     # Estimation
     def fit(
         self,
+        S: np.ndarray,
+        intercept_design: jnp.ndarray,
         Z: np.ndarray = None,
         rotated_Z: np.ndarray = None,
         U: np.ndarray = None,
-        S: np.ndarray = None,
         M: int = None,
         constraints: dict = {},
         residual_var: float = 1.0,
@@ -184,35 +185,37 @@ class HAMSTA:
 
         # prepare arguments for optimization
         # =======
+        S_filter = S > self.S_thres
+        S = S[S_filter]
         if rotated_Z is None:
-            rotated_Z = _rotate(S=S, Z=Z, U=U, residual_var=residual_var)
+            rotated_Z = rotate(S=S, Z=Z, U=U, residual_var=residual_var)
 
         if U is not None:
             M = M or U.shape[0]
+            U = U[:, S_filter]
 
         if M is None or rotated_Z is None or S is None:
             raise ValueError("Not enough arguments to start estimation")
 
         # apply filter
-        S_filter = S > self.S_thres
         rotated_Z = rotated_Z[S_filter]
-        S = S[S_filter]
-        U = U[:, S_filter]
+        intercept_design = intercept_design[S_filter, :]
 
         # group intercept into multiple var components
-        bin_idx = np.arange(S.shape[0]) // self.intercept_blksize
+        # bin_idx = np.arange(S.shape[0]) // self.intercept_blksize
         # group the last incomplete to the previous bin
-        if S.shape[0] % self.intercept_blksize != 0:
-            bin_idx[bin_idx == max(bin_idx)] -= 1
-        intercept_design = pd.get_dummies(bin_idx).values
-        intercept_design = jnp.array(intercept_design)
+        # if S.shape[0] % self.intercept_blksize != 0:
+        #     bin_idx[bin_idx == max(bin_idx)] -= 1
+        # intercept_design = pd.get_dummies(bin_idx).values
+        # intercept_design = jnp.array(intercept_design)
 
         # Optimization
         # ============
+        # decide multi intercept vs single intercept first, then test h2
         # Initial values
         # --------------
         param0 = jnp.repeat(-0.7, 1 + intercept_design.shape[1])
-        # H1 hypothesis
+        # H1 multi intercept hypothesis
         # -------------
         obj_fun: Callable = partial(
             _negloglik,
@@ -223,10 +226,37 @@ class HAMSTA:
             intercept_design=intercept_design,
         )
         est_res = _minimize(obj_fun, x0=param0, method="trust-ncg")
-        parameter = np.exp(est_res.x)
+        h1_mintcpt = -est_res.fun
+
+        # H0_intercept hypothesis
+        # -------------
+        intercept_design_null = jnp.ones((S.shape[0], 1))
+        param0 = jnp.repeat(-0.7, 2)
+        # constraints_intercept = constraints.copy()
+        # constraints_intercept.update({"intercept": jnp.array([1.0])})
+        obj_fun0_intercept: Callable = partial(
+            _negloglik,
+            rotated_Z=rotated_Z,
+            S=S,
+            M=M,
+            constraints={},
+            intercept_design=intercept_design_null,
+        )
+        est_res0 = _minimize(obj_fun0_intercept, x0=param0, method="trust-ncg")
+        h1_sintcpt = -est_res0.fun
+
+        # test multiple intercept vs single intercept to decide which one to proceed
+        p_intercept = _lrt(h1_sintcpt, h1_mintcpt, intercept_design.shape[1] - 1)["p"]
+        if p_intercept > 0.05:
+            intercept_design = intercept_design_null
+            parameter = np.exp(est_res0.x)
+            h1 = h1_sintcpt
+        else:
+            parameter = np.exp(est_res.x)
+            h1 = h1_mintcpt
+
         mean_intercept = jnp.mean(parameter[1:])
         intercepts = intercept_design @ parameter[1:]
-        h1 = -est_res.fun
 
         # H0_h2a hypothesis
         # -------------
@@ -242,22 +272,7 @@ class HAMSTA:
         )
         est_res = _minimize(obj_fun0, x0=param0, method="trust-ncg")
         h0 = -est_res.fun
-
-        # H0_intercept hypothesis
-        # -------------
-        intercept_design_null = jnp.ones((S.shape[0], 1))
-        constraints_intercept = constraints.copy()
-        constraints_intercept.update({"intercept": jnp.array([1.0])})
-        obj_fun0_intercept: Callable = partial(
-            _negloglik,
-            rotated_Z=rotated_Z,
-            S=S,
-            M=M,
-            constraints=constraints_intercept,
-            intercept_design=intercept_design_null,
-        )
-        est_res = _minimize(obj_fun0_intercept, x0=param0, method="trust-ncg")
-        h0_intercept = -est_res.fun
+        p_h2a = _lrt(h0, h1, len(constraints0) - len(constraints))["p"]
 
         # store results
         # =====
@@ -266,12 +281,10 @@ class HAMSTA:
                 "parameter": parameter,
                 "mean_intercept": mean_intercept,
                 "h0": h0,
-                "h0_intercept": h0_intercept,
-                "h1": h1,
-                "p_h2a": _lrt(h0, h1, len(constraints0) - len(constraints))["p"],
-                "p_intercept": _lrt(h0_intercept, h1, intercept_design.shape[1] - 1)[
-                    "p"
-                ],
+                "h1_sintcpt": h1_sintcpt,
+                "h1_mintcpt": h1_mintcpt,
+                "p_h2a": p_h2a,
+                "p_intercept": p_intercept,
             }
         )
 
@@ -282,6 +295,7 @@ class HAMSTA:
                 param_full=parameter,
                 rotated_Z=rotated_Z,
                 S=S,
+                intercept_design=intercept_design,
                 M=M,
                 constraints=constraints,
             )
@@ -309,6 +323,7 @@ class HAMSTA:
         param_full,
         rotated_Z: np.ndarray,
         S: np.ndarray,
+        intercept_design: np.ndarray,
         M: int,
         constraints: dict = {},
         num_blocks=10,
@@ -331,6 +346,7 @@ class HAMSTA:
                 M=M,
                 S=S[selected_index],
                 jackknife=False,
+                intercept_design=intercept_design[selected_index],
             )
             pseudo_val = (
                 num_blocks * param_full

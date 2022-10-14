@@ -5,8 +5,9 @@ import sys
 import jax.numpy as jnp
 import numpy as np
 import pandas as pd
+from scipy import linalg
 
-from hamsta import __version__, io, preprocess
+from hamsta import __version__, core, io, preprocess, utils
 
 _logger = logging.getLogger(__name__)
 
@@ -88,17 +89,18 @@ def parse_args(args):
     )
     infer_parser.add_argument(
         "--sumstat-chr",
-        help="Input prefix and suffix of filename of admixture mapping results",
+        help="file storing list of admixture mapping results",
     )
-    infer_parser.add_argument("--svd", help="Prefix of the SVD results", nargs=2)
+    infer_parser.add_argument("--svd", help="SVD results, U and S", nargs=2)
     infer_parser.add_argument(
-        "--svd-chr", help="Prefix and suffix of the per chr SVD results", nargs=2
+        "--svd-chr", help="file storing list of SVD results, path to U and S each line"
     )
     # infer_parser.add_argument(
     #     "--k", help="number of singular values used in inference", type=int
     # )
     # infer_parser.add_argument("--N", help="number of individuals", type=int)
-    infer_parser.set_defaults(func=infer_parser)
+    infer_parser.add_argument("--out", help="output prefix", default=sys.stdout)
+    infer_parser.set_defaults(func=infer_main)
 
     # organize parser
     main_parser = argparse.ArgumentParser(parents=[top_parser])
@@ -159,7 +161,74 @@ def pprocess_main(args):
 
 
 def infer_main(args):
-    pass
+    """main func for infer
+
+    Args:
+        args: argument include
+             | sumstat or sumstat_chr
+             | svd or svd_chr
+
+    """
+
+    Z_COLNAME = "T_STAT"
+    S_THRES = 1.0
+    BIN_SIZE = 500
+    RESIDUAL_VAR = 1.0
+
+    if args.sumstat is not None:
+        Z = io.read_sumstat(args.sumstat, Z_colname=Z_COLNAME)
+        U, S = np.load(args.svd[0]), np.load(args.svd[1])
+        intercept_design = utils.make_intercept_design(Z.shape[0], binsize=BIN_SIZE)
+
+    elif args.sumstat_chr is not None and args.svd_chr is not None:
+        Z_list, intercept_design_list, S_list = [], [], []
+        M = 0
+        for sumstat_line, svd_line in zip(
+            open(args.sumstat_chr, "r"), open(args.svd_chr, "r")
+        ):
+            Z = io.read_sumstat(sumstat_line.strip(), Z_colname="T_STAT")
+            M += Z.shape[0]
+
+            U_f, S_f = svd_line.strip().split("\t")
+            U, S = np.load(U_f), np.load(S_f)
+            S_list.append(S)
+
+            rotated_Z = core.rotate(U=U, S=S, Z=Z, residual_var=RESIDUAL_VAR)
+            Z_list.append(rotated_Z)
+            intercept_design_list.append(
+                utils.make_intercept_design(rotated_Z.shape[0], binsize=BIN_SIZE)
+            )
+        Z_ = jnp.concatenate(Z_list)
+        S_ = jnp.concatenate(S_list)
+        intercept_design = linalg.block_diag(*intercept_design_list)
+
+    else:
+        raise RuntimeError("Insufficient arguments")
+
+    ham = core.HAMSTA(S_thres=S_THRES)
+
+    ham.fit(rotated_Z=Z_, S=S_, M=M, jackknife=True, intercept_design=intercept_design)
+
+    if ham.result["p_intercept"] < 0.05:
+        thres_var = np.max(ham.result["parameter"][1:])
+    else:
+        thres_var = ham.result["mean_intercept"]
+
+    burden_list = []
+    for svd_line in open(args.svd_chr, "r"):
+        U_f, S_f = svd_line.strip().split("\t")
+        U, S = np.load(U_f), np.load(S_f)
+        intercept = np.repeat(thres_var, S.shape[0])
+        thres = ham.compute_thres(fwer=0.05, U=U, S=S, intercept=intercept)
+        burden_list.append(0.05 / thres)
+
+    thres = 0.05 / sum(burden_list)
+    res = ham.to_dataframe()
+    res.update({"thres": [thres]})
+
+    res.to_csv(args.out, sep="\t", index=None)
+
+    return 0
 
 
 def main(args):
