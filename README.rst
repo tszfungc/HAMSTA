@@ -39,34 +39,22 @@ HAMSTA
 ======
 
 
-    Add a short description here!
+    Heritability estimation from Admixture Mapping Summary STAtistics
 
 
-A longer description of your project goes here...
+
+HAMSTA is a python package that estimate heritability explained by local ancestry using summary statistics from admixture mapping studies.
 
 
-.. _pyscaffold-notes:
+Documentation
+=============
 
-Making Changes & Contributing
-=============================
+The documentation page is hosted on http://tszfungc.github.io/HAMSTA/
 
-This project uses `pre-commit`_, please make sure to install it before making any
-changes::
+Installation
+============
 
-    pip install pre-commit
-    cd HAMSTA
-    pre-commit install
+.. code-block:: bash
 
-It is a good idea to update the hooks to the latest version::
-
-    pre-commit autoupdate
-
-Don't forget to tell your contributors to also install and use pre-commit.
-
-.. _pre-commit: https://pre-commit.com/
-
-Note
-====
-
-This project has been set up using PyScaffold 4.1.1. For details and usage
-information on PyScaffold see https://pyscaffold.org/.
+    # In development.
+    # pip install hamsta
