@@ -65,12 +65,12 @@ def parse_args(args):
     preprocess_parser.add_argument(
         "--zarr",
         nargs=2,
-        help="Xarray dataset in zarr, two args require, (filepath, data_var)",
+        help="Xarray dataset in zarr, two args require, (filepath, ancestry)",
     )
     preprocess_parser.add_argument(
         "--nc",
         nargs=2,
-        help="Xarray dataset in netcdf, two args require, (filepath, data_var)",
+        help="Xarray dataset in netcdf, two args require, (filepath, ancestry)",
     )
     preprocess_parser.add_argument("--global-ancestry", help="Path to rfmix.Q")
     # preprocess_parser.add_argument("--LADmat", help="Path to LAD matrix")
