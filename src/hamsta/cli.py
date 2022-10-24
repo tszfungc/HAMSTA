@@ -55,30 +55,32 @@ def parse_args():
 
     # preprocess parser
     preprocess_parser = argparse.ArgumentParser(add_help=False)
-    # preprocess_parser.add_argument("--pgen", help="Path to pgen")
-    # preprocess_parser.add_argument("--nc", help="Path to xarray nc")
     preprocess_parser.add_argument(
         "--rfmixfb",
         nargs=2,
-        help="rfmix output .fb.tsv, two args require, (filepath, ancestry)",
+        help="Input local ancestry in rfmix .fb.tsv format, two args require, (filepath, ancestry)",  # noqa: E501
     )
     preprocess_parser.add_argument(
         "--zarr",
         nargs=2,
-        help="Xarray dataset in zarr, two args require, (filepath, ancestry)",
+        help="Input local ancestry in zarr format storing an Xarray dataset, two args require, (filepath, ancestry)",  # noqa: E501
     )
     preprocess_parser.add_argument(
         "--nc",
         nargs=2,
-        help="Xarray dataset in netcdf, two args require, (filepath, ancestry)",
+        help="Input local ancestry in netcdf format storing an Xarray dataset, two args require, (filepath, ancestry)",  # noqa: E501
     )
-    preprocess_parser.add_argument("--global-ancestry", help="Path to rfmix.Q")
-    # preprocess_parser.add_argument("--LADmat", help="Path to LAD matrix")
-    preprocess_parser.add_argument("--N", help="Number of individuals", type=float)
-    preprocess_parser.add_argument("--out", help="output prefix")
-    preprocess_parser.add_argument("--keep", help="list of individual to keep")
     preprocess_parser.add_argument(
-        "--k", help="Number of components to compute", type=int
+        "--global-ancestry", help="Path to global ancestry file in rfmix.Q format"
+    )
+    # preprocess_parser.add_argument("--LADmat", help="Path to LAD matrix")
+    # preprocess_parser.add_argument("--N", help="Number of individuals", type=float)
+    preprocess_parser.add_argument("--out", help="output prefix")
+    preprocess_parser.add_argument(
+        "--keep", help="file of a list of individual to keep"
+    )
+    preprocess_parser.add_argument(
+        "--k", help="Number of singular values to compute", type=int
     )
     preprocess_parser.set_defaults(func=pprocess_main)
 
