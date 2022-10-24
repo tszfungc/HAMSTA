@@ -20,7 +20,7 @@ jobs:
           python setup.py install
       - name: make docs
         run: |
-          make -C docs html
+          make -C docs clean html
       - name: upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
