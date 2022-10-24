@@ -27,7 +27,7 @@ def setup_logging(loglevel):
     )
 
 
-def parse_args():
+def get_parser():
     # Define parental parsers for main and subcommand
     # template for main
     top_parser = argparse.ArgumentParser(add_help=False)
@@ -234,7 +234,8 @@ def infer_main(args):
 
 
 def main(args):
-    args = parse_args(args)
+    parser = get_parser()
+    args = parser.parse_args(args)
 
     setup_logging(args.loglevel)
 

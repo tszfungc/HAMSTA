@@ -38,7 +38,7 @@ Single value decomposition of local ancestry data
 
 .. argparse::
     :module: hamsta.cli
-    :func: parse_args
+    :func: get_parser
     :prog: hamsta
     :path: preprocess
 
@@ -67,7 +67,7 @@ Running HAMSTA
 
 .. argparse::
     :module: hamsta.cli
-    :func: parse_args
+    :func: get_parser
     :prog: hamsta
     :path: infer
 
