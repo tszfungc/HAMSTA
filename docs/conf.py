@@ -73,6 +73,7 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
     "sphinx_autodoc_typehints",
+    "sphinxarg.ext",
 ]
 
 autodoc_member_order = 'bysource'
