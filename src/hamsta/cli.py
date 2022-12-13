@@ -152,11 +152,11 @@ def pprocess_main(args):
     # SVD
     U, S = preprocess.SVD(A=A, Q=Q, k=args.k)
 
-    if args.outprefix is not None:
-        np.save(args.outprefix + ".SVD.U.npy", U)
-        np.save(args.outprefix + ".SVD.S.npy", S)
+    if args.out is not None:
+        np.save(args.out + ".SVD.U.npy", U)
+        np.save(args.out + ".SVD.S.npy", S)
         # np.save(outprefix + ".SVD.SDpj.npy", SDpj)
-        _logger.info("SVD out saved to " + args.outprefix + ".SVD.*.npy")
+        _logger.info("SVD out saved to " + args.out + ".SVD.*.npy")
         _logger.info(f"output dimension: U ({U.shape}) S ({S.shape})")
 
 
