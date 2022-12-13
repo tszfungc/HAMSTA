@@ -3,6 +3,7 @@ jax[cpu]
 tqdm
 pandas
 scikit-learn
+statsmodels
 xarray
 zarr
 netcdf4

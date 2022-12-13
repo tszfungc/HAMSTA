@@ -4,3 +4,5 @@ sphinx-autodoc-typehints
 sphinx-book-theme
 pytest-cov
 pytest-accept
+sphinx-argparse
+setuptools-scm
