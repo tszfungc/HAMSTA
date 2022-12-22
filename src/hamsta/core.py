@@ -185,10 +185,11 @@ class HAMSTA:
 
         # prepare arguments for optimization
         # =======
-        S_filter = S > self.S_thres
-        S = S[S_filter]
         if rotated_Z is None:
             rotated_Z = rotate(S=S, Z=Z, U=U, residual_var=residual_var)
+
+        S_filter = S > self.S_thres
+        S = S[S_filter]
 
         if U is not None:
             M = M or U.shape[0]
