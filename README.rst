@@ -43,7 +43,7 @@ HAMSTA
 
 
 
-HAMSTA is a python package that estimate heritability explained by local ancestry using summary statistics from admixture mapping studies.
+HAMSTA is a python package that estimate heritability explained by local ancestry using summary statistics from admixture mapping studies. It also quantifies inflation in test statistics that is not contributed by local ancestry effects, and determines significance threshold for admixture mapping.
 
 
 Documentation
