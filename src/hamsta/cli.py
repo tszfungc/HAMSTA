@@ -114,9 +114,10 @@ def get_parser():
 
 
 def pprocess_main(args):
-
+    _logger.info("Preprocess data, generate SVD results")
     # read global
     if args.global_ancestry is not None:
+        _logger.info("Reading global ancestry...")
         Q = io.read_global_ancestry(
             fname=args.global_ancestry, sample_colname="#sample", skiprows=1
         )
@@ -125,18 +126,20 @@ def pprocess_main(args):
 
     # read local
     if args.rfmixfb is not None:
+        _logger.info("Reading local ancestry from rfmix .fb.tsv output...")
         A, A_sample = io.read_rfmixfb(*args.rfmixfb)
     elif args.nc is not None:
+        _logger.info("Reading local ancestry in netcdf4...")
         A, A_sample = io.read_nc(*args.nc)
     elif args.zarr is not None:
+        _logger.info("Reading local ancestry in zarr...")
         A, A_sample = io.read_zarr(*args.zarr)
     else:
         raise RuntimeError("No input local ancestry")
 
-    _logger.info(A_sample)
-
     # read keep
     if args.keep is not None:
+        _logger.info("filtering to keep samples...")
         keep = pd.read_csv(args.keep, header=None)[0].values.astype(str)
         keep = (A_sample[np.in1d(A_sample["sample"], keep)].merge(Q))["sample"]
 
@@ -152,13 +155,14 @@ def pprocess_main(args):
         Q = jnp.array(Q.iloc[:, 1:2])
 
     # SVD
+    _logger.info("Running SVD...")
     U, S = preprocess.SVD(A=A, Q=Q, k=args.k)
 
-    if args.outprefix is not None:
-        np.save(args.outprefix + ".SVD.U.npy", U)
-        np.save(args.outprefix + ".SVD.S.npy", S)
+    if args.out is not None:
+        np.save(args.out + ".SVD.U.npy", U)
+        np.save(args.out + ".SVD.S.npy", S)
         # np.save(outprefix + ".SVD.SDpj.npy", SDpj)
-        _logger.info("SVD out saved to " + args.outprefix + ".SVD.*.npy")
+        _logger.info("SVD out saved to " + args.out + ".SVD.*.npy")
         _logger.info(f"output dimension: U ({U.shape}) S ({S.shape})")
 
 
@@ -238,6 +242,8 @@ def main(args):
     args = parser.parse_args(args)
 
     setup_logging(args.loglevel)
+
+    _logger.info("Program starts")
 
     if "func" in args:
         args.func(args)
