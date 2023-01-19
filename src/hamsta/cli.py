@@ -9,6 +9,7 @@ from scipy import linalg
 
 from hamsta import __version__, core, io, preprocess, utils
 
+logging.basicConfig(format="%(asctime)s | %(message)s")
 _logger = logging.getLogger(__name__)
 
 
@@ -241,12 +242,16 @@ def main(args):
     parser = get_parser()
     args = parser.parse_args(args)
 
-    setup_logging(args.loglevel)
+    # setup_logging(args.loglevel)
+    _logger.setLevel(args.loglevel)
 
     _logger.info("Program starts")
+    _logger.debug("DEBUG logging in on")
 
     if "func" in args:
         args.func(args)
+
+    _logger.info("Program Finish")
 
 
 def run():
