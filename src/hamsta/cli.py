@@ -9,8 +9,8 @@ from scipy import linalg
 
 from hamsta import __version__, core, io, preprocess, utils
 
-logging.basicConfig(format="%(asctime)s | %(message)s")
 _logger = logging.getLogger(__name__)
+# logging.basicConfig(format="%(asctime)s | %(message)s")
 
 
 def setup_logging(loglevel):
@@ -18,7 +18,7 @@ def setup_logging(loglevel):
     Args:
       loglevel (int): minimum loglevel for emitting messages
     """
-    logformat = "[%(asctime)s] %(levelname)s:%(name)s:\n%(message)s"
+    logformat = "%(asctime)s | %(message)s"
     logging.basicConfig(
         level=loglevel,
         stream=sys.stdout,
@@ -44,6 +44,7 @@ def get_parser():
         help="set loglevel to INFO",
         action="store_const",
         const=logging.INFO,
+        default=logging.WARN,
     )
     top_parser.add_argument(
         "-vv",
@@ -115,10 +116,10 @@ def get_parser():
 
 
 def pprocess_main(args):
-    _logger.info("Preprocess data, generate SVD results")
+    _logger.warning("Preprocess data, generate SVD results")
     # read global
     if args.global_ancestry is not None:
-        _logger.info("Reading global ancestry...")
+        _logger.warning("Reading global ancestry...")
         Q = io.read_global_ancestry(
             fname=args.global_ancestry, sample_colname="#sample", skiprows=1
         )
@@ -127,26 +128,35 @@ def pprocess_main(args):
 
     # read local
     if args.rfmixfb is not None:
-        _logger.info("Reading local ancestry from rfmix .fb.tsv output...")
+        _logger.warning("Reading local ancestry from rfmix .fb.tsv output...")
         A, A_sample = io.read_rfmixfb(*args.rfmixfb)
     elif args.nc is not None:
-        _logger.info("Reading local ancestry in netcdf4...")
+        _logger.warning("Reading local ancestry in netcdf4...")
         A, A_sample = io.read_nc(*args.nc)
     elif args.zarr is not None:
-        _logger.info("Reading local ancestry in zarr...")
+        _logger.warning("Reading local ancestry in zarr...")
         A, A_sample = io.read_zarr(*args.zarr)
     else:
         raise RuntimeError("No input local ancestry")
 
+    # read local - logging
+    _logger.warning(
+        f"Found {A.shape[1]} individuals & {A.shape[0]} markers in local ancestry file"
+    )
+    num_indv_0 = A.shape[1]
+
     # read keep
     if args.keep is not None:
-        _logger.info("filtering to keep samples...")
+        _logger.warning("filtering to keep samples...")
         keep = pd.read_csv(args.keep, header=None)[0].values.astype(str)
         keep = (A_sample[np.in1d(A_sample["sample"], keep)].merge(Q))["sample"]
 
         # filter local ancestry samples
         A_sel = np.in1d(A_sample["sample"], keep)
         A, A_sample = A[:, A_sel], A_sample[A_sel]
+
+    num_indv_1 = A.shape[1]
+    _logger.warning(f"{num_indv_0 - num_indv_1} individuals were filtered")
 
     if Q is not None:
         # sort global ancestry to local ancestry's order
@@ -156,15 +166,15 @@ def pprocess_main(args):
         Q = jnp.array(Q.iloc[:, 1:2])
 
     # SVD
-    _logger.info("Running SVD...")
+    _logger.warning(f"Running SVD on {A.shape[1]} individuals and {A.shape[0]} markers")
     U, S = preprocess.SVD(A=A, Q=Q, k=args.k)
 
     if args.out is not None:
         np.save(args.out + ".SVD.U.npy", U)
         np.save(args.out + ".SVD.S.npy", S)
         # np.save(outprefix + ".SVD.SDpj.npy", SDpj)
-        _logger.info("SVD out saved to " + args.out + ".SVD.*.npy")
-        _logger.info(f"output dimension: U ({U.shape}) S ({S.shape})")
+        _logger.warning("SVD out saved to " + args.out + ".SVD.*.npy")
+        _logger.warning(f"output dimension: U {U.shape} S {S.shape}")
 
 
 def infer_main(args):
@@ -242,10 +252,9 @@ def main(args):
     parser = get_parser()
     args = parser.parse_args(args)
 
-    # setup_logging(args.loglevel)
-    _logger.setLevel(args.loglevel)
+    setup_logging(args.loglevel)
 
-    _logger.info("Program starts")
+    _logger.warning("Program starts")
     _logger.debug("DEBUG logging in on")
 
     if "func" in args:
