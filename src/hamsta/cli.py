@@ -193,9 +193,10 @@ def infer_main(args):
     RESIDUAL_VAR = 1.0
 
     if args.sumstat is not None:
-        Z = io.read_sumstat(args.sumstat, Z_colname=Z_COLNAME)
-        U, S = np.load(args.svd[0]), np.load(args.svd[1])
-        intercept_design = utils.make_intercept_design(Z.shape[0], binsize=BIN_SIZE)
+        Z_ = io.read_sumstat(args.sumstat, Z_colname=Z_COLNAME)
+        M = Z_.shape[0]
+        _, S_ = np.load(args.svd[0]), np.load(args.svd[1])
+        intercept_design = utils.make_intercept_design(Z_.shape[0], binsize=BIN_SIZE)
 
     elif args.sumstat_chr is not None and args.svd_chr is not None:
         Z_list, intercept_design_list, S_list = [], [], []
