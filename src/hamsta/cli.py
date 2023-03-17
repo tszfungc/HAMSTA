@@ -101,6 +101,12 @@ def get_parser():
     #     "--k", help="number of singular values used in inference", type=int
     # )
     # infer_parser.add_argument("--N", help="number of individuals", type=int)
+    infer_parser.add_argument(
+        "--thres",
+        help="whether significance threshold is estimated",
+        type=bool,
+        default=False,
+    )
     infer_parser.add_argument("--out", help="output prefix", default=sys.stdout)
     infer_parser.set_defaults(func=infer_main)
 
@@ -152,6 +158,7 @@ def pprocess_main(args):
         Q = jnp.array(Q.iloc[:, 1:2])
 
     # SVD
+    print("SVD", flush=True)
     U, S = preprocess.SVD(A=A, Q=Q, k=args.k)
 
     if args.out is not None:
@@ -216,15 +223,18 @@ def infer_main(args):
     else:
         thres_var = ham.result["mean_intercept"]
 
-    burden_list = []
-    for svd_line in open(args.svd_chr, "r"):
-        U_f, S_f = svd_line.strip().split("\t")
-        U, S = np.load(U_f), np.load(S_f)
-        intercept = np.repeat(thres_var, S.shape[0])
-        thres = ham.compute_thres(fwer=0.05, U=U, S=S, intercept=intercept)
-        burden_list.append(0.05 / thres)
+    thres = None
+    if args.thres:
+        burden_list = []
+        for svd_line in open(args.svd_chr, "r"):
+            U_f, S_f = svd_line.strip().split("\t")
+            U, S = np.load(U_f), np.load(S_f)
+            intercept = np.repeat(thres_var, S.shape[0])
+            thres = ham.compute_thres(fwer=0.05, U=U, S=S, intercept=intercept)
+            burden_list.append(0.05 / thres)
 
-    thres = 0.05 / sum(burden_list)
+        thres = 0.05 / sum(burden_list)
+
     res = ham.to_dataframe()
     res.update({"thres": [thres]})
 
