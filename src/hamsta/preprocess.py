@@ -36,12 +36,13 @@ def SVD(
 
     # Projection
     if Q is not None:
-        _logger.info(f"Project out global ancestry : {Q.shape[0]}")
+        _logger.info(f"Start: Project out global ancestry : {Q.shape[0]}")
         if len(Q.shape) == 1:
             Q = Q.reshape(-1, 1)
         Q -= Q.mean(axis=0, keepdims=True)
         P = jnp.eye(Q.shape[0]) - Q @ jnp.linalg.solve(Q.T @ Q, Q.T)
         A_std = jnp.matmul(A, P)
+        _logger.info(f"End: Project out global ancestry : {Q.shape[0]}")
     else:
         A_std = A
 
