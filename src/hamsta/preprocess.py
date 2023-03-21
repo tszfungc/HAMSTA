@@ -54,5 +54,6 @@ def SVD(
         U, S, _ = randomized_svd(A_std, n_components=k, random_state=None)
 
     # Write
+    S = S / jnp.sqrt(A.shape[1])
 
     return U, S

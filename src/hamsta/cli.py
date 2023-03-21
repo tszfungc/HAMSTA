@@ -103,6 +103,7 @@ def get_parser():
     #     "--k", help="number of singular values used in inference", type=int
     # )
     # infer_parser.add_argument("--N", help="number of individuals", type=int)
+    infer_parser.add_argument("--N", help="Number of individuals", type=int)
     infer_parser.add_argument(
         "--thres",
         help="whether significance threshold is estimated",
@@ -154,7 +155,7 @@ def pprocess_main(args):
     # read keep
     if args.keep is not None:
         _logger.warning("filtering to keep samples...")
-        keep = pd.read_csv(args.keep, header=None)[0].values.astype(str)
+        keep = pd.read_csv(args.keep, sep="\t")["#IID"].values.astype(object)
         keep = (A_sample[np.in1d(A_sample["sample"], keep)].merge(Q))["sample"]
 
         # filter local ancestry samples
@@ -167,7 +168,7 @@ def pprocess_main(args):
     if Q is not None:
         # sort global ancestry to local ancestry's order
         Q = A_sample.merge(Q)
-        assert np.all(A_sample["sample"] == Q["sample"])
+        assert np.all(A_sample["sample"].values == Q["sample"].values)
         # astype jnp ndarray
         Q = jnp.array(Q.iloc[:, 1:2])
 
@@ -215,6 +216,7 @@ def infer_main(args):
 
             U_f, S_f = svd_line.strip().split("\t")
             U, S = np.load(U_f), np.load(S_f)
+            S = S * jnp.sqrt(args.N)
             S_list.append(S)
 
             rotated_Z = core.rotate(U=U, S=S, Z=Z, residual_var=RESIDUAL_VAR)
