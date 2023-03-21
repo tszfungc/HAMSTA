@@ -246,16 +246,20 @@ def infer_main(args):
         for svd_line in open(args.svd_chr, "r"):
             U_f, S_f = svd_line.strip().split("\t")
             U, S = np.load(U_f), np.load(S_f)
+            S = S * np.sqrt(args.N)
             intercept = np.repeat(thres_var, S.shape[0])
             thres = ham.compute_thres(fwer=0.05, U=U, S=S, intercept=intercept)
             burden_list.append(0.05 / thres)
 
         thres = 0.05 / sum(burden_list)
 
-    res = ham.to_dataframe()
+    res = ham.to_dict()
     res.update({"thres": [thres]})
 
-    res.to_csv(args.out, sep="\t", index=None)
+    # res.to_csv(args.out, sep="\t", index=None)
+    out_f = open(args.out, "w")
+    for k in res:
+        print(f"{k}\t{res[k]}", file=out_f)
 
     return 0
 
