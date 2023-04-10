@@ -18,8 +18,6 @@ Contents
 .. toctree::
     :caption: Development
 
-    Contributions & Help <contributing>
-    Changelog <changelog>
 
 
 Indices and tables
