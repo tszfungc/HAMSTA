@@ -54,14 +54,6 @@ The documentation page is hosted on http://tszfungc.github.io/HAMSTA/
 Installation
 ============
 
-via pip
-----------
-
-.. code-block:: bash
-
-    # In development.
-    # pip install hamsta
-
 via Github (for development)
 ----------------------------
 
@@ -69,6 +61,7 @@ via Github (for development)
 
     git clone https://github.com/tszfungc/HAMSTA.git
     cd HAMSTA
+    pip install -r requirement.txt
     python setup.py install
 
 Reference

@@ -258,6 +258,12 @@ def infer_main(args):
 
     # res.to_csv(args.out, sep="\t", index=None)
     out_f = open(args.out, "w")
+    res_param = res.pop('parameter')
+    res_se = res.pop('SE')
+    print(f"h2a \t{res_param[:1]}", file=out_f) 
+    print(f"h2a_SE \t{res_se[:1]}", file=out_f) 
+    print(f"intercepts \t{res_param[1:]}", file=out_f)
+    print(f"intercepts_SE \t{res_se[1:]}", file=out_f)
     for k in res:
         print(f"{k}\t{res[k]}", file=out_f)
 
@@ -276,7 +282,7 @@ def main(args):
     if "func" in args:
         args.func(args)
 
-    _logger.info("Program Finish")
+    _logger.warning("Program Finish")
 
 
 def run():

@@ -280,6 +280,7 @@ class HAMSTA:
         self.result.update(
             {
                 "parameter": parameter,
+                "SE": [None, None],
                 "mean_intercept": mean_intercept,
                 "h0": h0,
                 "h1_sintcpt": h1_sintcpt,

@@ -9,20 +9,24 @@ Command line interface
 Example
 -------
 
+Step 1
+
 .. code-block:: bash
 
     hamsta preprocess \
-     --rfmixfb example.fb.tsv HCB \
+     --rfmixfb example.fb.tsv AFR \
      --global-ancestry example.rfmix.Q \
      --out example
 
 
-The command will create files
+The command will create files for the ``U`` and ``S`` in ``A' = USV'``, where the shape of ``A'`` is (marker, sample)
 
 ::
 
     example.U.npy
     example.S.npy
+
+Step 2
 
 .. code-block:: bash
 
@@ -31,7 +35,7 @@ The command will create files
      --svd example.U.npy example.S.npy \
      --out example.hamsta_result.txt
 
-The result will be written to ``example.hamsta_result.txt`` in tab-delimited format
+The result will be written to ``example.hamsta_result.txt``
 
 Single value decomposition of local ancestry data
 -------------------------------------------------
@@ -45,20 +49,20 @@ Single value decomposition of local ancestry data
 
 .. note::
 
-    Expect the following structure when Xarray dataset is used.
+    If Xarray dataset is used, the following structure is expected
 
     ::
 
         <xarray.Dataset>
-        Dimensions:           (ancestry: 2, marker: 8, sample: 39, ploidy: 2)
+        Dimensions:           (marker: 800, sample: 3000, ploidy: 2, ancestry: 2)
         Coordinates:
-          * ancestry          (ancestry) <U3 'HCB' 'JPT'
-          * marker            (marker) uint32 1 6 12 20 25 31 36 43
+          * marker            (marker) uint32 15309459 15343272 ... 50702360 50743879
+          * sample            (sample) <U7 'msp1' 'msp2' 'msp3' ... 'msp2999' 'msp3000'
           * ploidy            (ploidy) int8 0 1
-          * sample            (sample) <U6 'HCB182' 'HCB190' ... 'JPT266' 'JPT267'
+          * ancestry          (ancestry) <U3 'AFR' 'EUR'
         Data variables:
-            genetic_position  (marker) float32 ...
-            locanc            (marker, sample, ploidy, ancestry) float32 ...
+            locanc            (marker, sample, ploidy, ancestry) float32 1.0 0.0 ... 0.0
+            genetic_position  (marker) float64 0.0 0.009117 0.01411 ... 73.63 73.78 73.9
 
 
 
