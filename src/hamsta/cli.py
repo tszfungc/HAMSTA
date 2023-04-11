@@ -60,17 +60,17 @@ def get_parser():
     preprocess_parser.add_argument(
         "--rfmixfb",
         nargs=2,
-        help="Input local ancestry in rfmix .fb.tsv format, two args require, (filepath, ancestry)",  # noqa: E501
+        help="Path to input local ancestry in rfmix .fb.tsv format, two args require, (filepath, ancestry)",  # noqa: E501
     )
     preprocess_parser.add_argument(
         "--zarr",
         nargs=2,
-        help="Input local ancestry in zarr format storing an Xarray dataset, two args require, (filepath, ancestry)",  # noqa: E501
+        help="Path to input local ancestry in zarr format storing an Xarray dataset, two args require, (filepath, ancestry)",  # noqa: E501
     )
     preprocess_parser.add_argument(
         "--nc",
         nargs=2,
-        help="Input local ancestry in netcdf format storing an Xarray dataset, two args require, (filepath, ancestry)",  # noqa: E501
+        help="Path to input local ancestry in netcdf format storing an Xarray dataset, two args require, (filepath, ancestry)",  # noqa: E501
     )
     preprocess_parser.add_argument(
         "--global-ancestry", help="Path to global ancestry file in rfmix.Q format"
@@ -79,7 +79,7 @@ def get_parser():
     # preprocess_parser.add_argument("--N", help="Number of individuals", type=float)
     preprocess_parser.add_argument("--out", help="output prefix")
     preprocess_parser.add_argument(
-        "--keep", help="file of a list of individual to keep"
+        "--keep", help="text file with a header #IID, followed by a list of individual to keep"
     )
     preprocess_parser.add_argument(
         "--k", help="Number of singular values to compute", type=int
@@ -89,15 +89,15 @@ def get_parser():
     # infer parser
     infer_parser = argparse.ArgumentParser(add_help=False)
     infer_parser.add_argument(
-        "--sumstat", help="Input filename of admixture mapping results"
+        "--sumstat", help="Input filename of admixture mapping results, expect the marker order is the same as the SVD input, default column storing Z score is T_STAT" # noqa: E501
     )
     infer_parser.add_argument(
         "--sumstat-chr",
-        help="file storing list of admixture mapping results",
+        help="file storing list of admixture mapping results, expect each input follows the same marker order in the SVD input, default column storing Z score is T_STAT",
     )
-    infer_parser.add_argument("--svd", help="SVD results, U and S", nargs=2)
+    infer_parser.add_argument("--svd", help="SVD results, require 2 arguments, path to U and path to S", nargs=2)
     infer_parser.add_argument(
-        "--svd-chr", help="file storing list of SVD results, path to U and S each line"
+        "--svd-chr", help="file storing list of SVD results, each line contains path to U and S corresponding to the same line in --sumstat-chr"
     )
     # infer_parser.add_argument(
     #     "--k", help="number of singular values used in inference", type=int
@@ -106,11 +106,11 @@ def get_parser():
     infer_parser.add_argument("--N", help="Number of individuals", type=int)
     infer_parser.add_argument(
         "--thres",
-        help="whether significance threshold is estimated",
+        help="whether significance threshold will be estimated",
         type=bool,
         default=False,
     )
-    infer_parser.add_argument("--out", help="output prefix", default=sys.stdout)
+    infer_parser.add_argument("--out", help="output path", default=sys.stdout)
     infer_parser.set_defaults(func=infer_main)
 
     # organize parser

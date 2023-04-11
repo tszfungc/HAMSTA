@@ -65,6 +65,24 @@ Single value decomposition of local ancestry data
             genetic_position  (marker) float64 0.0 0.009117 0.01411 ... 73.63 73.78 73.9
 
 
+    RFMIX .fb.tsv format example
+
+    ::
+
+        #reference_panel_population:    AFR     EUR
+        chromosome      physical_position       genetic_position        genetic_marker_index    msp1:::hap1:::AFR       msp1:::hap1:::EUR       msp1:::hap2:::AFR       msp1:::hap2:::EUR       msp2:::hap1:::AFR       msp2:::hap1:::EUR       msp2:::hap2:::AFR       msp2:::hap2:::EUR msp3:::hap1:::AFR
+        1       15309459        .       0       1.0     0.0     1.0     0.0     1.0     0.0     0.0     1.0
+        1       15343272        .       1       1.0     0.0     1.0     0.0     1.0     0.0     0.0     1.0
+        1       15349660        .       2       1.0     0.0     1.0     0.0     1.0     0.0     0.0     1.0
+
+    RFMIX .rfmix.Q format example
+
+    ::
+
+        #rfmix diploid global ancestry .Q format output
+        #sample AFR     EUR
+        msp1    0.859375        0.140625
+        msp10   0.88125 0.11875
 
 Running HAMSTA
 --------------
