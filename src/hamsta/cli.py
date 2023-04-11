@@ -195,7 +195,7 @@ def infer_main(args):
     """
 
     Z_COLNAME = "T_STAT"
-    S_THRES = 1.0
+    S_THRES = 1e-3
     BIN_SIZE = 500
     RESIDUAL_VAR = 1.0
 
