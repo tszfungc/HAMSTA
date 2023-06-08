@@ -1,9 +1,6 @@
 ==========
-Quickstart
-==========
-
 Command line interface
-======================
+==========
 
 
 Example
@@ -93,10 +90,3 @@ Running HAMSTA
     :prog: hamsta
     :path: infer
 
-
-
-Python api
-==========
-
-
-Coming soon
