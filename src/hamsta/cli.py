@@ -104,6 +104,7 @@ def get_parser():
     # )
     # infer_parser.add_argument("--N", help="number of individuals", type=int)
     infer_parser.add_argument("--N", help="Number of individuals", type=int)
+    infer_parser.add_argument("--num-blocks", help="Number of jackknife blocks", type=int, default=10)
     infer_parser.add_argument(
         "--thres",
         help="whether significance threshold is estimated",
@@ -233,7 +234,7 @@ def infer_main(args):
 
     ham = core.HAMSTA(S_thres=S_THRES)
 
-    ham.fit(rotated_Z=Z_, S=S_, M=M, jackknife=True, intercept_design=intercept_design)
+    ham.fit(rotated_Z=Z_, S=S_, M=M, jackknife=True, intercept_design=intercept_design, n_blocks=args.num_blocks)
 
     if ham.result["p_intercept"] < 0.05:
         thres_var = np.max(ham.result["parameter"][1:])

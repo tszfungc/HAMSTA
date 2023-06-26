@@ -157,6 +157,7 @@ class HAMSTA:
         constraints: dict = {},
         residual_var: float = 1.0,
         jackknife: bool = False,
+        num_blocks: int = 10,
         est_thres: Union[bool, float] = False,
     ):
         """Fit to compute likelihood and MLE
@@ -299,6 +300,7 @@ class HAMSTA:
                 intercept_design=intercept_design,
                 M=M,
                 constraints=constraints,
+                num_blocks=num_blocks
             )
             self.result.update({"SE": se})
 
