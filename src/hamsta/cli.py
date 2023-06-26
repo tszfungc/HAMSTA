@@ -216,10 +216,10 @@ def infer_main(args):
 
             U_f, S_f = svd_line.strip().split("\t")
             U, S = np.load(U_f), np.load(S_f)
-            S = S * jnp.sqrt(args.N)
+            # S = S * jnp.sqrt(args.N)
             S_list.append(S)
 
-            rotated_Z = core.rotate(U=U, S=S, Z=Z, residual_var=RESIDUAL_VAR)
+            rotated_Z = core.rotate(U=U, S=S, Z=Z, residual_var=RESIDUAL_VAR, N=args.N)
             Z_list.append(rotated_Z)
             intercept_design_list.append(
                 utils.make_intercept_design(rotated_Z.shape[0], binsize=BIN_SIZE)
@@ -233,7 +233,7 @@ def infer_main(args):
 
     ham = core.HAMSTA(S_thres=S_THRES)
 
-    ham.fit(rotated_Z=Z_, S=S_, M=M, jackknife=True, intercept_design=intercept_design)
+    ham.fit(rotated_Z=Z_, S=S_, M=M, jackknife=True, intercept_design=intercept_design, N=args.N)
 
     if ham.result["p_intercept"] < 0.05:
         thres_var = np.max(ham.result["parameter"][1:])
@@ -246,7 +246,6 @@ def infer_main(args):
         for svd_line in open(args.svd_chr, "r"):
             U_f, S_f = svd_line.strip().split("\t")
             U, S = np.load(U_f), np.load(S_f)
-            S = S * np.sqrt(args.N)
             intercept = np.repeat(thres_var, S.shape[0])
             thres = ham.compute_thres(fwer=0.05, U=U, S=S, intercept=intercept)
             burden_list.append(0.05 / thres)
