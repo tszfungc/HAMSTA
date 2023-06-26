@@ -55,8 +55,9 @@ def _pre_fit_check(**kwargs):
             raise ValueError("Unknown # markers")
 
 
-def rotate(U: np.ndarray, S: np.ndarray, Z: np.ndarray, residual_var: float):
+def rotate(U: np.ndarray, S: np.ndarray, Z: np.ndarray, residual_var: float, N: int):
 
+    S = S * jnp.sqrt(N)
     D_sqrt = jnp.sqrt(jnp.sum(U ** 2 * S ** 2, axis=1))
     rotated_Z = np.sqrt(residual_var) * U.T @ (D_sqrt * Z)
 
@@ -153,6 +154,7 @@ class HAMSTA:
         Z: np.ndarray = None,
         rotated_Z: np.ndarray = None,
         U: np.ndarray = None,
+        N: int = None ,
         M: int = None,
         constraints: dict = {},
         residual_var: float = 1.0,
@@ -190,6 +192,7 @@ class HAMSTA:
 
         S_filter = S > self.S_thres
         S = S[S_filter]
+        S = S * jnp.sqrt(N)
 
         if U is not None:
             M = M or U.shape[0]

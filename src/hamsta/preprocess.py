@@ -10,6 +10,7 @@ _logger = logging.getLogger(__name__)
 def SVD(
     A: jnp.ndarray,
     Q: jnp.ndarray = None,
+    LAD: jnp.ndarray = None,
     k: int = None,
 ) -> Tuple[jnp.ndarray, jnp.ndarray]:
     """SVD, with covariate and output options.
@@ -22,29 +23,34 @@ def SVD(
             local ancestry matrix (marker, sample)
         Q:
             global ancestry or covariates to be projected (sample, n_covariate)
+        LAD:
+            local ancestry correlation matrix (marker, marker)
         k:
             number of components computed in truncated
 
     Returns:
-        ``(U, S)`` in SVD of ``X = U * S @ Vh``
+        ``(U, S)`` in SVD of ``X = U * S @ Vh``, where X is A/sqrt(N) with A standardized
 
     """
-
-    # Standardize
-    _logger.info("Standardize local ancestry")
-    A = (A - A.mean(axis=1, keepdims=True)) / A.std(axis=1, keepdims=True)
-
-    # Projection
-    if Q is not None:
-        _logger.info(f"Start: Project out global ancestry : {Q.shape[0]}")
-        if len(Q.shape) == 1:
-            Q = Q.reshape(-1, 1)
-        Q -= Q.mean(axis=0, keepdims=True)
-        P = jnp.eye(Q.shape[0]) - Q @ jnp.linalg.solve(Q.T @ Q, Q.T)
-        A_std = jnp.matmul(A, P)
-        _logger.info(f"End: Project out global ancestry : {Q.shape[0]}")
+    
+    if LAD is not None:
+        A_std = LAD
     else:
-        A_std = A
+        # Standardize
+        _logger.info("Standardize local ancestry")
+        A = (A - A.mean(axis=1, keepdims=True)) / A.std(axis=1, keepdims=True)
+
+        # Projection
+        if Q is not None:
+            _logger.info(f"Start: Project out global ancestry : {Q.shape[0]}")
+            if len(Q.shape) == 1:
+                Q = Q.reshape(-1, 1)
+            Q -= Q.mean(axis=0, keepdims=True)
+            P = jnp.eye(Q.shape[0]) - Q @ jnp.linalg.solve(Q.T @ Q, Q.T)
+            A_std = jnp.matmul(A, P)
+            _logger.info(f"End: Project out global ancestry : {Q.shape[0]}")
+        else:
+            A_std = A
 
     # SVD
     _logger.info("Running SVD")
@@ -53,7 +59,10 @@ def SVD(
     else:
         U, S, _ = randomized_svd(A_std, n_components=k, random_state=None)
 
-    # Write
-    S = S / jnp.sqrt(A.shape[1])
+    
+    if LAD is not None:
+        S = jnp.sqrt(S)
+    else:
+        S = S / jnp.sqrt(A.shape[1])
 
     return U, S
