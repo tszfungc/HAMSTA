@@ -266,7 +266,10 @@ def infer_main(args):
     print(f"intercepts \t{res_param[1:]}", file=out_f)
     print(f"intercepts_SE \t{res_se[1:]}", file=out_f)
     for k in res:
-        print(f"{k}\t{res[k]}", file=out_f)
+        if k in ['p_h2a', 'p_intercept']:
+            print(f"{k}\t{res[k]:.4e}", file=out_f)
+        else:
+            print(f"{k}\t{res[k]}", file=out_f)
 
     return 0
 

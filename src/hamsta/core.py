@@ -237,14 +237,13 @@ class HAMSTA:
         # -------------
         intercept_design_null = jnp.ones((S.shape[0], 1))
         param0 = jnp.repeat(-0.7, 2)
-        # constraints_intercept = constraints.copy()
-        # constraints_intercept.update({"intercept": jnp.array([1.0])})
+        constraints_intercept = constraints.copy()
         obj_fun0_intercept: Callable = partial(
             _negloglik,
             rotated_Z=rotated_Z,
             S=S,
             M=M,
-            constraints={},
+            constraints=constraints_intercept,
             intercept_design=intercept_design_null,
         )
         est_res0 = _minimize(obj_fun0_intercept, x0=param0, method="trust-ncg")
