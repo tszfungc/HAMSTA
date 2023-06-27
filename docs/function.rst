@@ -36,10 +36,12 @@ First, you need to compute the singular value decomposition of the local ancestr
 Inference
 *********
 
-In the inference step, you will
+In the inference step,
 
 
     .. code-block:: python
 
         ham = core.HAMSTA(S_thres=S_THRES)
         ham.fit(rotated_Z=Z_, S=S_, N=N, M=M, jackknife=True, intercept_design=intercept_design)
+
+The results will be stored in a dictionary ``ham.result``
