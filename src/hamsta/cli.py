@@ -60,17 +60,17 @@ def get_parser():
     preprocess_parser.add_argument(
         "--rfmixfb",
         nargs=2,
-        help="Input local ancestry in rfmix .fb.tsv format, two args require, (filepath, ancestry)",  # noqa: E501
+        help="Path to input local ancestry in rfmix .fb.tsv format, two args require, (filepath, ancestry)",  # noqa: E501
     )
     preprocess_parser.add_argument(
         "--zarr",
         nargs=2,
-        help="Input local ancestry in zarr format storing an Xarray dataset, two args require, (filepath, ancestry)",  # noqa: E501
+        help="Path to input local ancestry in zarr format storing an Xarray dataset, two args require, (filepath, ancestry)",  # noqa: E501
     )
     preprocess_parser.add_argument(
         "--nc",
         nargs=2,
-        help="Input local ancestry in netcdf format storing an Xarray dataset, two args require, (filepath, ancestry)",  # noqa: E501
+        help="Path to input local ancestry in netcdf format storing an Xarray dataset, two args require, (filepath, ancestry)",  # noqa: E501
     )
     preprocess_parser.add_argument(
         "--global-ancestry", help="Path to global ancestry file in rfmix.Q format"
@@ -79,7 +79,7 @@ def get_parser():
     # preprocess_parser.add_argument("--N", help="Number of individuals", type=float)
     preprocess_parser.add_argument("--out", help="output prefix")
     preprocess_parser.add_argument(
-        "--keep", help="file of a list of individual to keep"
+        "--keep", help="text file with a header #IID, followed by a list of individual to keep"
     )
     preprocess_parser.add_argument(
         "--k", help="Number of singular values to compute", type=int
@@ -89,15 +89,15 @@ def get_parser():
     # infer parser
     infer_parser = argparse.ArgumentParser(add_help=False)
     infer_parser.add_argument(
-        "--sumstat", help="Input filename of admixture mapping results"
+        "--sumstat", help="Input filename of admixture mapping results, expect the marker order is the same as the SVD input, default column storing Z score is T_STAT" # noqa: E501
     )
     infer_parser.add_argument(
         "--sumstat-chr",
-        help="file storing list of admixture mapping results",
+        help="file storing list of admixture mapping results, expect each input follows the same marker order in the SVD input, default column storing Z score is T_STAT",
     )
-    infer_parser.add_argument("--svd", help="SVD results, U and S", nargs=2)
+    infer_parser.add_argument("--svd", help="SVD results, require 2 arguments, path to U and path to S", nargs=2)
     infer_parser.add_argument(
-        "--svd-chr", help="file storing list of SVD results, path to U and S each line"
+        "--svd-chr", help="file storing list of SVD results, each line contains path to U and S corresponding to the same line in --sumstat-chr"
     )
     # infer_parser.add_argument(
     #     "--k", help="number of singular values used in inference", type=int
@@ -107,11 +107,11 @@ def get_parser():
     infer_parser.add_argument("--num-blocks", help="Number of jackknife blocks", type=int, default=10)
     infer_parser.add_argument(
         "--thres",
-        help="whether significance threshold is estimated",
+        help="whether significance threshold will be estimated",
         type=bool,
         default=False,
     )
-    infer_parser.add_argument("--out", help="output prefix", default=sys.stdout)
+    infer_parser.add_argument("--out", help="output path", default=sys.stdout)
     infer_parser.set_defaults(func=infer_main)
 
     # organize parser
@@ -196,7 +196,7 @@ def infer_main(args):
     """
 
     Z_COLNAME = "T_STAT"
-    S_THRES = 1.0
+    S_THRES = 1e-3
     BIN_SIZE = 500
     RESIDUAL_VAR = 1.0
 
@@ -204,7 +204,7 @@ def infer_main(args):
         Z = io.read_sumstat(args.sumstat, Z_colname=Z_COLNAME)
         M = Z.shape[0]
         U_, S_ = np.load(args.svd[0]), np.load(args.svd[1])
-        Z_ = core.rotate(U=U_, S=S_, Z=Z, residual_var=RESIDUAL_VAR)
+        Z_ = core.rotate(U=U_, S=S_, Z=Z, residual_var=RESIDUAL_VAR, N=args.N)
         intercept_design = utils.make_intercept_design(Z_.shape[0], binsize=BIN_SIZE)
 
     elif args.sumstat_chr is not None and args.svd_chr is not None:
@@ -218,10 +218,10 @@ def infer_main(args):
 
             U_f, S_f = svd_line.strip().split("\t")
             U, S = np.load(U_f), np.load(S_f)
-            S = S * jnp.sqrt(args.N)
+            # S = S * jnp.sqrt(args.N)
             S_list.append(S)
 
-            rotated_Z = core.rotate(U=U, S=S, Z=Z, residual_var=RESIDUAL_VAR)
+            rotated_Z = core.rotate(U=U, S=S, Z=Z, residual_var=RESIDUAL_VAR, N=args.N)
             Z_list.append(rotated_Z)
             intercept_design_list.append(
                 utils.make_intercept_design(rotated_Z.shape[0], binsize=BIN_SIZE)
@@ -235,7 +235,7 @@ def infer_main(args):
 
     ham = core.HAMSTA(S_thres=S_THRES)
 
-    ham.fit(rotated_Z=Z_, S=S_, M=M, jackknife=True, intercept_design=intercept_design, num_blocks=args.num_blocks)
+    ham.fit(rotated_Z=Z_, S=S_, M=M, jackknife=True, intercept_design=intercept_design, num_blocks=args.num_blocks, N=args.N)
 
     if ham.result["p_intercept"] < 0.05:
         thres_var = np.max(ham.result["parameter"][1:])
@@ -248,7 +248,6 @@ def infer_main(args):
         for svd_line in open(args.svd_chr, "r"):
             U_f, S_f = svd_line.strip().split("\t")
             U, S = np.load(U_f), np.load(S_f)
-            S = S * np.sqrt(args.N)
             intercept = np.repeat(thres_var, S.shape[0])
             thres = ham.compute_thres(fwer=0.05, U=U, S=S, intercept=intercept)
             burden_list.append(0.05 / thres)
@@ -260,6 +259,12 @@ def infer_main(args):
 
     # res.to_csv(args.out, sep="\t", index=None)
     out_f = open(args.out, "w")
+    res_param = res.pop('parameter')
+    res_se = res.pop('SE')
+    print(f"h2a \t{res_param[:1]}", file=out_f)
+    print(f"h2a_SE \t{res_se[:1]}", file=out_f)
+    print(f"intercepts \t{res_param[1:]}", file=out_f)
+    print(f"intercepts_SE \t{res_se[1:]}", file=out_f)
     for k in res:
         print(f"{k}\t{res[k]}", file=out_f)
 
@@ -278,7 +283,7 @@ def main(args):
     if "func" in args:
         args.func(args)
 
-    _logger.info("Program Finish")
+    _logger.warning("Program Finish")
 
 
 def run():

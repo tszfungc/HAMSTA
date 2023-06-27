@@ -12,14 +12,12 @@ Contents
     :caption: User Guide
 
     Overview <readme>
-    Quickstart <quickstart>
+    Command Line interface <cli>
     Module Reference <api>
 
 .. toctree::
     :caption: Development
 
-    Contributions & Help <contributing>
-    Changelog <changelog>
 
 
 Indices and tables

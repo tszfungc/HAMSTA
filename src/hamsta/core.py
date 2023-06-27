@@ -55,8 +55,9 @@ def _pre_fit_check(**kwargs):
             raise ValueError("Unknown # markers")
 
 
-def rotate(U: np.ndarray, S: np.ndarray, Z: np.ndarray, residual_var: float):
+def rotate(U: np.ndarray, S: np.ndarray, Z: np.ndarray, residual_var: float, N: int):
 
+    S = S * jnp.sqrt(N)
     D_sqrt = jnp.sqrt(jnp.sum(U ** 2 * S ** 2, axis=1))
     rotated_Z = np.sqrt(residual_var) * U.T @ (D_sqrt * Z)
 
@@ -153,6 +154,7 @@ class HAMSTA:
         Z: np.ndarray = None,
         rotated_Z: np.ndarray = None,
         U: np.ndarray = None,
+        N: int = None ,
         M: int = None,
         constraints: dict = {},
         residual_var: float = 1.0,
@@ -191,6 +193,7 @@ class HAMSTA:
 
         S_filter = S > self.S_thres
         S = S[S_filter]
+        S = S * jnp.sqrt(N)
 
         if U is not None:
             M = M or U.shape[0]
@@ -281,6 +284,7 @@ class HAMSTA:
         self.result.update(
             {
                 "parameter": parameter,
+                "SE": [None, None],
                 "mean_intercept": mean_intercept,
                 "h0": h0,
                 "h1_sintcpt": h1_sintcpt,
@@ -298,6 +302,7 @@ class HAMSTA:
                 rotated_Z=rotated_Z,
                 S=S,
                 intercept_design=intercept_design,
+                N=N,
                 M=M,
                 constraints=constraints,
                 num_blocks=num_blocks
@@ -326,6 +331,7 @@ class HAMSTA:
         param_full,
         rotated_Z: np.ndarray,
         S: np.ndarray,
+        N: int,
         intercept_design: np.ndarray,
         M: int,
         constraints: dict = {},
@@ -347,6 +353,7 @@ class HAMSTA:
             pseudo_hamsta.fit(
                 rotated_Z=rotated_Z[selected_index],
                 M=M,
+                N=N,
                 S=S[selected_index],
                 jackknife=False,
                 intercept_design=intercept_design[selected_index],
