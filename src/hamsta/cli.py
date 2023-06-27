@@ -201,9 +201,10 @@ def infer_main(args):
     RESIDUAL_VAR = 1.0
 
     if args.sumstat is not None:
-        Z_ = io.read_sumstat(args.sumstat, Z_colname=Z_COLNAME)
-        M = Z_.shape[0]
-        _, S_ = np.load(args.svd[0]), np.load(args.svd[1])
+        Z = io.read_sumstat(args.sumstat, Z_colname=Z_COLNAME)
+        M = Z.shape[0]
+        U_, S_ = np.load(args.svd[0]), np.load(args.svd[1])
+        Z_ = core.rotate(U=U_, S=S_, Z=Z, residual_var=RESIDUAL_VAR)
         intercept_design = utils.make_intercept_design(Z_.shape[0], binsize=BIN_SIZE)
 
     elif args.sumstat_chr is not None and args.svd_chr is not None:
@@ -234,7 +235,7 @@ def infer_main(args):
 
     ham = core.HAMSTA(S_thres=S_THRES)
 
-    ham.fit(rotated_Z=Z_, S=S_, M=M, jackknife=True, intercept_design=intercept_design, n_blocks=args.num_blocks)
+    ham.fit(rotated_Z=Z_, S=S_, M=M, jackknife=True, intercept_design=intercept_design, num_blocks=args.num_blocks)
 
     if ham.result["p_intercept"] < 0.05:
         thres_var = np.max(ham.result["parameter"][1:])
