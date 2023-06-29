@@ -151,10 +151,10 @@ class HAMSTA:
         self,
         S: np.ndarray,
         intercept_design: jnp.ndarray,
+        N: int,
         Z: np.ndarray = None,
         rotated_Z: np.ndarray = None,
         U: np.ndarray = None,
-        N: int = None ,
         M: int = None,
         constraints: dict = {},
         residual_var: float = 1.0,
@@ -189,7 +189,7 @@ class HAMSTA:
         # prepare arguments for optimization
         # =======
         if rotated_Z is None:
-            rotated_Z = rotate(S=S, Z=Z, U=U, residual_var=residual_var)
+            rotated_Z = rotate(S=S, Z=Z, U=U, residual_var=residual_var, N=N)
 
         S_filter = S > self.S_thres
         S = S[S_filter]
@@ -304,7 +304,7 @@ class HAMSTA:
                 N=N,
                 M=M,
                 constraints=constraints,
-                num_blocks=num_blocks
+                num_blocks=num_blocks,
             )
             self.result.update({"SE": se})
 
@@ -317,8 +317,11 @@ class HAMSTA:
                     fwer=0.05, U=U, S=S, intercept=intercepts, resid_var=residual_var
                 )
         elif isinstance(est_thres, float) and U is not None:
+            assert (
+                est_thres > 0 and est_thres < 1
+            ), "Family-wise error rate must be between 0 and 1"
             thres = self.compute_thres(
-                fwer=0.05, U=U, S=S, intercept=intercepts, resid_var=residual_var
+                fwer=est_thres, U=U, S=S, intercept=intercepts, resid_var=residual_var
             )
 
         self.result.update({"thres": thres})
