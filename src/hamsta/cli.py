@@ -108,7 +108,7 @@ def get_parser():
     infer_parser.add_argument(
         "--thres",
         help="whether significance threshold will be estimated",
-        type=bool,
+        action='store_true',
         default=False,
     )
     infer_parser.add_argument("--out", help="output path", default=sys.stdout)
@@ -244,18 +244,23 @@ def infer_main(args):
 
     thres = None
     if args.thres:
-        burden_list = []
-        for svd_line in open(args.svd_chr, "r"):
-            U_f, S_f = svd_line.strip().split("\t")
-            U, S = np.load(U_f), np.load(S_f)
+        if args.sumstat is not None:
+            U, S = np.load(args.svd[0]), np.load(args.svd[1])
             intercept = np.repeat(thres_var, S.shape[0])
             thres = ham.compute_thres(fwer=0.05, U=U, S=S, intercept=intercept)
-            burden_list.append(0.05 / thres)
+        else:
+            burden_list = []
+            for svd_line in open(args.svd_chr, "r"):
+                U_f, S_f = svd_line.strip().split("\t")
+                U, S = np.load(U_f), np.load(S_f)
+                intercept = np.repeat(thres_var, S.shape[0])
+                thres = ham.compute_thres(fwer=0.05, U=U, S=S, intercept=intercept)
+                burden_list.append(0.05 / thres)
 
-        thres = 0.05 / sum(burden_list)
+            thres = 0.05 / sum(burden_list)
 
     res = ham.to_dict()
-    res.update({"thres": [thres]})
+    res.update({"thres": thres})
 
     # res.to_csv(args.out, sep="\t", index=None)
     out_f = open(args.out, "w")
