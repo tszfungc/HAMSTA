@@ -79,7 +79,8 @@ def get_parser():
     # preprocess_parser.add_argument("--N", help="Number of individuals", type=float)
     preprocess_parser.add_argument("--out", help="output prefix")
     preprocess_parser.add_argument(
-        "--keep", help="text file with a header #IID, followed by a list of individual to keep"
+        "--keep",
+        help="text file with a header #IID, followed by a list of individual to keep",
     )
     preprocess_parser.add_argument(
         "--k", help="Number of singular values to compute", type=int
@@ -89,26 +90,34 @@ def get_parser():
     # infer parser
     infer_parser = argparse.ArgumentParser(add_help=False)
     infer_parser.add_argument(
-        "--sumstat", help="Input filename of admixture mapping results, expect the marker order is the same as the SVD input, default column storing Z score is T_STAT" # noqa: E501
+        "--sumstat",
+        help="Input filename of admixture mapping results, expect the marker order is the same as the SVD input, default column storing Z score is T_STAT",  # noqa: E501
     )
     infer_parser.add_argument(
         "--sumstat-chr",
-        help="file storing list of admixture mapping results, expect each input follows the same marker order in the SVD input, default column storing Z score is T_STAT",
+        help="file storing list of admixture mapping results, expect each input follows the same marker order in the SVD input, default column storing Z score is T_STAT",  # noqa: E501
     )
-    infer_parser.add_argument("--svd", help="SVD results, require 2 arguments, path to U and path to S", nargs=2)
     infer_parser.add_argument(
-        "--svd-chr", help="file storing list of SVD results, each line contains path to U and S corresponding to the same line in --sumstat-chr"
+        "--svd",
+        help="SVD results, require 2 arguments, path to U and path to S",
+        nargs=2,
+    )
+    infer_parser.add_argument(
+        "--svd-chr",
+        help="file storing list of SVD results, each line contains path to U and S corresponding to the same line in --sumstat-chr",  # noqa: E501
     )
     # infer_parser.add_argument(
     #     "--k", help="number of singular values used in inference", type=int
     # )
     # infer_parser.add_argument("--N", help="number of individuals", type=int)
     infer_parser.add_argument("--N", help="Number of individuals", type=int)
-    infer_parser.add_argument("--num-blocks", help="Number of jackknife blocks", type=int, default=10)
+    infer_parser.add_argument(
+        "--num-blocks", help="Number of jackknife blocks", type=int, default=10
+    )
     infer_parser.add_argument(
         "--thres",
         help="whether significance threshold will be estimated",
-        action='store_true',
+        action="store_true",
         default=False,
     )
     infer_parser.add_argument("--out", help="output path", default=sys.stdout)
@@ -235,7 +244,15 @@ def infer_main(args):
 
     ham = core.HAMSTA(S_thres=S_THRES)
 
-    ham.fit(rotated_Z=Z_, S=S_, M=M, jackknife=True, intercept_design=intercept_design, num_blocks=args.num_blocks, N=args.N)
+    ham.fit(
+        rotated_Z=Z_,
+        S=S_,
+        M=M,
+        jackknife=True,
+        intercept_design=intercept_design,
+        num_blocks=args.num_blocks,
+        N=args.N,
+    )
 
     if ham.result["p_intercept"] < 0.05:
         thres_var = np.max(ham.result["parameter"][1:])
@@ -264,14 +281,14 @@ def infer_main(args):
 
     # res.to_csv(args.out, sep="\t", index=None)
     out_f = open(args.out, "w")
-    res_param = res.pop('parameter')
-    res_se = res.pop('SE')
-    print(f"h2a \t{res_param[:1]}", file=out_f)
-    print(f"h2a_SE \t{res_se[:1]}", file=out_f)
+    res_param = res.pop("parameter")
+    res_se = res.pop("SE")
+    print(f"h2gamma \t{res_param[:1]}", file=out_f)
+    print(f"h2gamma_SE \t{res_se[:1]}", file=out_f)
     print(f"intercepts \t{res_param[1:]}", file=out_f)
     print(f"intercepts_SE \t{res_se[1:]}", file=out_f)
     for k in res:
-        if k in ['p_h2a', 'p_intercept']:
+        if k in ["p_h2gamma", "p_intercept"]:
             print(f"{k}\t{res[k]:.4e}", file=out_f)
         else:
             print(f"{k}\t{res[k]}", file=out_f)
