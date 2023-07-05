@@ -2,7 +2,7 @@
 API reference
 =============
 
-.. currentmodule:: hamsta
+.. currentmodule:: hamsta.core
 
 HAMSTA
 ======
