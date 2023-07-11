@@ -12,6 +12,7 @@ Contents
     :caption: User Guide
 
     Overview <readme>
+    Running HAMSTA <function>
     Command Line interface <cli>
     Module Reference <api>
 
