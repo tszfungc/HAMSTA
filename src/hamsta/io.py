@@ -124,6 +124,7 @@ def read_rfmixfb(
     Args:
         fname: Path to RFMIX output
         ancestry: The ancestry to be extracted
+        exclude: str = None,
 
     Returns:
         a local ancestry matrix (marker, sample) and list of sample
@@ -168,12 +169,24 @@ def read_rfmixfb(
     # data lines
     # Reshape to (marker, sample, ploidy, ancestry) array
     # choose ancestry and sum over ploidy
+    if exclude is not None:
+        exclude_region = read_bed(exclude)
+
     LA_matrix = []  # read into (marker by (sample x ploidy x ancestry))
     for i, line in enumerate(f_handle):
         if i % 100 == 0:
             logging.debug(f"processing {i}-th marker")
 
         line_split = line.strip().split("\t")
+        if exclude is not None:
+            isskip = np.any(
+                [
+                    start <= int(line_split[1]) and int(line_split[1]) < end
+                    for _, start, end in exclude_region
+                ]
+            )
+            if isskip:
+                continue
         LA_matrix.append(line_split[4:])
 
     LA_matrix = jnp.float_(LA_matrix).reshape(-1, N, 2, n_pops)
@@ -207,7 +220,7 @@ def read_zarr(
             locanc    (marker, sample, ploidy, ancestry) float32 1.0 0.0 1.0 ... 0.0 1.0
 
     Args:
-        fname: Path to RFMIX output
+        fname: Path to zarr file storing local ancestry in xarray
         ancestry: The ancestry to be extracted
 
     Returns:
@@ -235,7 +248,19 @@ def read_zarr(
     """
     ds = xr.open_zarr(fname)
 
-    LA_matrix = jnp.array(ds.locanc.sel(ancestry=ancestry).sum(dim="ploidy"))
+    # LA_matrix = jnp.array(ds.locanc.sel(ancestry=ancestry).sum(dim="ploidy"))
+    ds_LA = ds.locanc.sel(ancestry=ancestry).sum(dim="ploidy")
+    if exclude is not None:
+        exclude_region = read_bed(exclude)
+        extract = np.logical_and.reduce(
+            [
+                ~np.logical_and(start <= ds_LA["marker"], ds_LA["marker"] < end)
+                for _, start, end in exclude_region
+            ]
+        )
+        ds_LA = ds_LA[extract, :]
+
+    LA_matrix = jnp.array(ds_LA)
 
     sample_df = ds.sample.to_dataframe().reset_index(drop=True)
 
@@ -247,6 +272,48 @@ def read_nc(
     ancestry: str,
     exclude: str = None,
 ) -> Tuple[jnp.ndarray, pd.DataFrame]:
+    """Reader for xarray stored in netcdf
+
+    Read a :class:`xarray.Dataset` with data ``locanc`` in
+    (marker, sample, ploidy, ancestry), example::
+
+        <xarray.Dataset>
+        Dimensions:   (marker: 8, sample: 39, ploidy: 2, ancestry: 2)
+        Coordinates:
+        * ancestry  (ancestry) <U3 'HCB' 'JPT'
+        * marker    (marker) uint32 1 6 12 20 25 31 36 43
+        * ploidy    (ploidy) int8 0 1
+        * sample    (sample) <U6 'HCB182' 'HCB190' 'HCB191' ... 'JPT266' 'JPT267'
+        Data variables:
+            locanc    (marker, sample, ploidy, ancestry) float32 1.0 0.0 1.0 ... 0.0 1.0
+
+    Args:
+        fname: Path to netcdf file storing local ancestry in xarray
+        ancestry: The ancestry to be extracted
+
+    Returns:
+        a local ancestry matrix (marker, sample) and list of sample
+
+    Example
+    -------
+    >>> from hamsta import io
+    >>> A, A_sample = io.read_zarr("tests/testdata/example.zarr", "HCB")
+    >>> A[:5, :5]
+    DeviceArray([[2.   , 2.   , 2.   , 1.969, 1.   ],
+                 [2.   , 2.   , 2.   , 1.969, 1.   ],
+                 [2.   , 2.   , 2.   , 1.969, 1.   ],
+                 [2.   , 2.   , 2.   , 1.969, 1.   ],
+                 [2.   , 2.   , 2.   , 1.969, 1.   ]], dtype=float32)
+    >>> A_sample.head(5)
+       sample
+    0  HCB182
+    1  HCB190
+    2  HCB191
+    3  HCB193
+    4  HCB194
+
+
+    """
 
     ds = xr.open_dataset(fname).load()
 
