@@ -288,7 +288,7 @@ class HAMSTA:
                 "h0": h0,
                 "h1_sintcpt": h1_sintcpt,
                 "h1_mintcpt": h1_mintcpt,
-                "p_h2a": p_h2a,
+                "p_h2gamma": p_h2a,
                 "p_intercept": p_intercept,
             }
         )

@@ -9,6 +9,10 @@ import xarray as xr
 _logger = logging.getLogger(__name__)
 
 
+def read_bed(fname: str):
+    bedf = open(fname, 'r')
+    return [list(map(int, line.split("\t"))) for line in bedf.read().splitlines()]
+
 def read_singular_val(svdprefix, svdprefix_chr, nS):
     if svdprefix is not None:
         S_ = np.load(f"{svdprefix}.SVD.S.npy")[:nS]
@@ -110,6 +114,7 @@ def read_global_ancestry(fname: str, sample_colname: str, **pd_kwargs) -> pd.Dat
 def read_rfmixfb(
     fname: str,
     ancestry: str,
+    exclude: str = None,
 ) -> Tuple[jnp.ndarray, pd.DataFrame]:
     """Reader for RFMIX .fb.tsv output
 
@@ -183,6 +188,7 @@ def read_rfmixfb(
 def read_zarr(
     fname: str,
     ancestry: str,
+    exclude: str = None,
 ) -> Tuple[jnp.ndarray, pd.DataFrame]:
     """Reader for xarray stored in .zarr
 
@@ -238,11 +244,22 @@ def read_zarr(
 def read_nc(
     fname: str,
     ancestry: str,
+    exclude: str=None,
 ) -> Tuple[jnp.ndarray, pd.DataFrame]:
 
     ds = xr.open_dataset(fname).load()
 
-    LA_matrix = jnp.array(ds.locanc.sel(ancestry=ancestry).sum(dim="ploidy"))
+    #LA_matrix = jnp.array(ds.locanc.sel(ancestry=ancestry).sum(dim="ploidy"))
+    ds_LA = ds.locanc.sel(ancestry=ancestry).sum(dim="ploidy")
+    if exclude is not None:
+        exclude_region = read_bed(exclude)
+        extract = np.logical_and.reduce(
+            [~np.logical_and(start <= ds_LA['marker'], ds_LA['marker'] < end)
+             for _, start, end in exclude_region]
+        )
+        ds_LA = ds_LA[extract, :]
+
+    LA_matrix = jnp.array(ds_LA)
 
     sample_df = ds.sample.to_dataframe().reset_index(drop=True)
 

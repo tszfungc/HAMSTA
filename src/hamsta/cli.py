@@ -83,6 +83,10 @@ def get_parser():
         help="text file with a header #IID, followed by a list of individual to keep",
     )
     preprocess_parser.add_argument(
+        "--exclude",
+        help="bed file containing ranges to be exlcuded",
+    )
+    preprocess_parser.add_argument(
         "--k", help="Number of singular values to compute", type=int
     )
     preprocess_parser.set_defaults(func=pprocess_main)
@@ -146,13 +150,13 @@ def pprocess_main(args):
     # read local
     if args.rfmixfb is not None:
         _logger.warning("Reading local ancestry from rfmix .fb.tsv output...")
-        A, A_sample = io.read_rfmixfb(*args.rfmixfb)
+        A, A_sample = io.read_rfmixfb(*args.rfmixfb, exclude=args.exclude)
     elif args.nc is not None:
         _logger.warning("Reading local ancestry in netcdf4...")
-        A, A_sample = io.read_nc(*args.nc)
+        A, A_sample = io.read_nc(*args.nc, exclude=args.exclude)
     elif args.zarr is not None:
         _logger.warning("Reading local ancestry in zarr...")
-        A, A_sample = io.read_zarr(*args.zarr)
+        A, A_sample = io.read_zarr(*args.zarr, exclude=args.exclude)
     else:
         raise RuntimeError("No input local ancestry")
 
