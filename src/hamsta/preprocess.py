@@ -29,10 +29,10 @@ def SVD(
             number of components computed in truncated
 
     Returns:
-        ``(U, S)`` in SVD of ``X = U * S @ Vh``, where X is A/sqrt(N) with A standardized
+        ``(U, S)`` in SVD of ``X = U * S @ Vh``, where X is A/sqrt(N) with A standardized # noqa: E501
 
     """
-    
+
     if LAD is not None:
         A_std = LAD
     else:
@@ -59,7 +59,6 @@ def SVD(
     else:
         U, S, _ = randomized_svd(A_std, n_components=k, random_state=None)
 
-    
     if LAD is not None:
         S = jnp.sqrt(S)
     else:

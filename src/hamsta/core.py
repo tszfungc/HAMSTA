@@ -208,7 +208,7 @@ class HAMSTA:
         # apply filter
         rotated_Z = rotated_Z[S_filter]
         intercept_design = intercept_design[S_filter, :]
-        intercept_design = intercept_design[: , jnp.sum(intercept_design, axis=0)>0]
+        intercept_design = intercept_design[:, jnp.sum(intercept_design, axis=0) > 0]
 
         # group intercept into multiple var components
         # bin_idx = np.arange(S.shape[0]) // self.intercept_blksize
@@ -372,7 +372,7 @@ class HAMSTA:
                 S=S[selected_index],
                 jackknife=False,
                 intercept_design=intercept_design[selected_index],
-                complete=False
+                complete=False,
             )
             pseudo_val = (
                 num_blocks * param_full

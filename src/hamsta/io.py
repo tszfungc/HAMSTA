@@ -10,8 +10,9 @@ _logger = logging.getLogger(__name__)
 
 
 def read_bed(fname: str):
-    bedf = open(fname, 'r')
+    bedf = open(fname, "r")
     return [list(map(int, line.split("\t"))) for line in bedf.read().splitlines()]
+
 
 def read_singular_val(svdprefix, svdprefix_chr, nS):
     if svdprefix is not None:
@@ -244,18 +245,20 @@ def read_zarr(
 def read_nc(
     fname: str,
     ancestry: str,
-    exclude: str=None,
+    exclude: str = None,
 ) -> Tuple[jnp.ndarray, pd.DataFrame]:
 
     ds = xr.open_dataset(fname).load()
 
-    #LA_matrix = jnp.array(ds.locanc.sel(ancestry=ancestry).sum(dim="ploidy"))
+    # LA_matrix = jnp.array(ds.locanc.sel(ancestry=ancestry).sum(dim="ploidy"))
     ds_LA = ds.locanc.sel(ancestry=ancestry).sum(dim="ploidy")
     if exclude is not None:
         exclude_region = read_bed(exclude)
         extract = np.logical_and.reduce(
-            [~np.logical_and(start <= ds_LA['marker'], ds_LA['marker'] < end)
-             for _, start, end in exclude_region]
+            [
+                ~np.logical_and(start <= ds_LA["marker"], ds_LA["marker"] < end)
+                for _, start, end in exclude_region
+            ]
         )
         ds_LA = ds_LA[extract, :]
 
