@@ -160,6 +160,7 @@ class HAMSTA:
         residual_var: float = 1.0,
         jackknife: bool = False,
         num_blocks: int = 10,
+        complete: bool = True,
         est_thres: Union[bool, float] = False,
     ):
         """Fit to compute likelihood and MLE
@@ -173,6 +174,8 @@ class HAMSTA:
             constraints: constraints applied in the optimization
             residual_var: variance of the residual in admixture mapping (default: 1)
             jackknife: If true, compute the jackknife standard error
+            num_blocks: Number of jackknife blocks
+            complete: if False, only skip all tests and compute only estimates
             est_thres:
                 If float, estimate significant threshold
                 at family-wise error rate equal the float value.
@@ -205,6 +208,7 @@ class HAMSTA:
         # apply filter
         rotated_Z = rotated_Z[S_filter]
         intercept_design = intercept_design[S_filter, :]
+        intercept_design = intercept_design[: , jnp.sum(intercept_design, axis=0)>0]
 
         # group intercept into multiple var components
         # bin_idx = np.arange(S.shape[0]) // self.intercept_blksize
@@ -233,6 +237,14 @@ class HAMSTA:
         est_res = _minimize(obj_fun, x0=param0, method="trust-ncg")
         h1_mintcpt = -est_res.fun
 
+        if complete is False:
+            self.result.update(
+                {
+                    "parameter": np.exp(est_res.x),
+                }
+            )
+            return self
+
         # H0_intercept hypothesis
         # -------------
         intercept_design_null = jnp.ones((S.shape[0], 1))
@@ -256,6 +268,7 @@ class HAMSTA:
             parameter = np.exp(est_res0.x)
             h1 = h1_sintcpt
         else:
+            param0 = jnp.repeat(-0.7, 1 + intercept_design.shape[1])
             parameter = np.exp(est_res.x)
             h1 = h1_mintcpt
 
@@ -359,6 +372,7 @@ class HAMSTA:
                 S=S[selected_index],
                 jackknife=False,
                 intercept_design=intercept_design[selected_index],
+                complete=False
             )
             pseudo_val = (
                 num_blocks * param_full
